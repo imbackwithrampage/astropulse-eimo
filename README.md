@@ -2,7 +2,8 @@
 
 ### Earth-Independent Medical Operations & Autonomous Astronaut Health Triage
 **NASA Space Apps Challenge 2026** | **Team:** Phantom Developers  
-🌐 **Live Interactive Website:** [https://imbackwithrampage.github.io/astropulse-eimo/](https://imbackwithrampage.github.io/astropulse-eimo/)
+🌐 **Live Interactive Website:** [https://imbackwithrampage.github.io/astropulse-eimo/](https://imbackwithrampage.github.io/astropulse-eimo/)  
+⚡ **Mirror (Surge):** [https://astropulse-eimo.surge.sh/](https://astropulse-eimo.surge.sh/)
 
 ---
 
@@ -41,4 +42,5 @@ During communication latency intervals (up to 22 minutes each way during Mars mi
 ## 🚀 Live Demo
 
 Experience the live interactive application directly in your browser:  
-👉 **[https://imbackwithrampage.github.io/astropulse-eimo/](https://imbackwithrampage.github.io/astropulse-eimo/)**
+👉 **Primary (GitHub Pages):** [https://imbackwithrampage.github.io/astropulse-eimo/](https://imbackwithrampage.github.io/astropulse-eimo/)  
+👉 **Mirror (Surge.sh):** [https://astropulse-eimo.surge.sh/](https://astropulse-eimo.surge.sh/)
