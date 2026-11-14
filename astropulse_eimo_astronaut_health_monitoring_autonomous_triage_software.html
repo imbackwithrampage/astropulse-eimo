@@ -1,0 +1,1916 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AstroPulse EIMO — Astronaut Health Monitoring &amp; Autonomous Triage Software</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #070b14;
+      color: #e2e8f0;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .body-zone {
+      cursor: pointer;
+      transition: all 0.22s ease;
+    }
+    .body-zone:hover {
+      filter: brightness(1.25);
+    }
+    .zone-selected {
+      stroke: #38bdf8 !important;
+      stroke-width: 3px !important;
+      filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.55));
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(51, 65, 85, 0.75);
+      backdrop-filter: blur(8px);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-sky-500 selection:text-slate-950">
+
+  <!-- Top Telemetry Header -->
+  <header class="border-b border-slate-800 bg-slate-950/90 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-sky-500/15 border border-sky-400/40 flex items-center justify-center text-sky-400 font-bold mono text-sm">
+          EIMO
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">AstroPulse EIMO</h1>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 font-medium">NASA Space Apps 2026</span>
+            <span class="hidden md:inline-block text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-medium">Team: Phantom Developers</span>
+          </div>
+          <p class="text-xs text-slate-400">Bayesian N-of-1 Digital Twin, 5-Hazard Coupling &amp; Earth-Independent Medical Operations</p>
+        </div>
+      </div>
+
+      <!-- Live Comms & Mission Status Pill -->
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
+        <div class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-2">
+          <span class="text-slate-400">Environment:</span>
+          <span id="header-env-badge" class="font-semibold text-sky-300 mono">Deep Space Transit (0.00g)</span>
+        </div>
+        <div class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-2">
+          <span class="text-slate-400">Earth Link:</span>
+          <span id="header-latency-badge" class="font-semibold text-amber-300 mono">12m 40s One-Way Delay</span>
+        </div>
+        <div id="header-overall-status" class="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-semibold flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>CREW NOMINAL</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Bar -->
+    <div class="max-w-7xl mx-auto px-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/70 py-2">
+      <nav class="flex flex-wrap gap-1.5" aria-label="Main Navigation">
+        <button id="tab-btn-dashboard" type="button" onclick="switchView('dashboard')" class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-sky-500 text-slate-950 transition">
+          1. Body Map &amp; Dashboard
+        </button>
+        <button id="tab-btn-logger" type="button" onclick="switchView('logger')" class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-slate-900 text-slate-300 hover:bg-slate-800 transition">
+          2. Multi-Modal Vitals Logger
+        </button>
+        <button id="tab-btn-triage" type="button" onclick="switchView('triage')" class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-slate-900 text-slate-300 hover:bg-slate-800 transition">
+          3. Emergency Triage &amp; EIMO Guide
+        </button>
+        <button id="tab-btn-trends" type="button" onclick="switchView('trends')" class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-slate-900 text-slate-300 hover:bg-slate-800 transition">
+          4. Trends &amp; Gamified Routine
+        </button>
+        <button id="tab-btn-quantum" type="button" onclick="switchView('quantum')" class="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-slate-900 text-slate-300 hover:bg-slate-800 transition">
+          5. Bayesian N-of-1 Twin &amp; Monte Carlo
+        </button>
+      </nav>
+
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="resetToNominalBaseline()" class="px-2.5 py-1 rounded-md text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          Reset Baseline
+        </button>
+        <button type="button" onclick="exportMedicalPacket()" class="px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 transition">
+          Copy Ground Telemetry JSON
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- In-Page Notification Toast -->
+  <div id="toast-banner" class="hidden fixed bottom-5 right-5 z-50 max-w-md px-4 py-3 rounded-xl bg-slate-900 border border-sky-400/50 shadow-2xl text-xs sm:text-sm text-slate-100 flex items-center justify-between gap-3">
+    <span id="toast-message">Telemetry updated.</span>
+    <button type="button" onclick="hideToast()" class="text-slate-400 hover:text-white font-bold px-1.5">✕</button>
+  </div>
+
+  <!-- Main Workspace Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-5 space-y-6">
+
+    <!-- Mission Environment Switcher & NASA IMM Quantitative KPI Strip -->
+    <section class="glass-card rounded-2xl p-4 space-y-4">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+        <div>
+          <span class="text-xs uppercase tracking-wider text-sky-400 font-semibold">Mission Environment Profile</span>
+          <p id="env-description-text" class="text-xs text-slate-300 mt-0.5">
+            Deep Space Transit (Orion / Mars Cruise): 0.00g weightlessness, galactic cosmic ray exposure, 1–1.5%/month bone mineral loss, and autonomous Earth-Independent Medical Operations (EIMO).
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-1.5" role="group" aria-label="Mission Environment Selector">
+          <button id="env-btn-station" type="button" onclick="selectEnvironment('station')" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-900 text-slate-300 border border-slate-700 hover:border-sky-400 transition">
+            Space Station (LEO)
+          </button>
+          <button id="env-btn-transit" type="button" onclick="selectEnvironment('transit')" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-300 border border-sky-400 transition">
+            Spacecraft (Mars Transit)
+          </button>
+          <button id="env-btn-rover" type="button" onclick="selectEnvironment('rover')" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-900 text-slate-300 border border-slate-700 hover:border-sky-400 transition">
+            Surface Rover (EVA)
+          </button>
+          <button id="env-btn-base" type="button" onclick="selectEnvironment('base')" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-900 text-slate-300 border border-slate-700 hover:border-sky-400 transition">
+            Planetary Base (0.16g / 0.38g)
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 NASA IMM KPI Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+          <div class="flex items-center justify-between text-xs text-slate-400">
+            <span>NASA IMM Crew Health Index (CHI)</span>
+            <span class="mono text-sky-400">iMED Model</span>
+          </div>
+          <div class="mt-1.5 flex items-baseline justify-between">
+            <span id="kpi-chi-value" class="text-2xl font-bold mono text-emerald-400">94%</span>
+            <span id="kpi-chi-sub" class="text-xs text-emerald-300">Functional Capacity High</span>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+          <div class="flex items-center justify-between text-xs text-slate-400">
+            <span>Primary HRP Spaceflight Hazard</span>
+            <span class="mono text-amber-400">5-Hazard Map</span>
+          </div>
+          <div class="mt-1.5 flex items-baseline justify-between">
+            <span id="kpi-hazard-value" class="text-base font-bold text-slate-100">Radiation + 0.00g</span>
+            <span id="kpi-hazard-sub" class="text-xs text-slate-400">Bone -1.2%/mo</span>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+          <div class="flex items-center justify-between text-xs text-slate-400">
+            <span>Flight-Surgeon Escalation Mode</span>
+            <span class="mono text-indigo-400">ExMC EIMO</span>
+          </div>
+          <div class="mt-1.5 flex items-baseline justify-between">
+            <span id="kpi-escalation-value" class="text-base font-bold text-sky-300">Routine Store &amp; Forward</span>
+            <span id="kpi-escalation-sub" class="text-xs text-slate-400">No acute trigger</span>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+          <div class="flex items-center justify-between text-xs text-slate-400">
+            <span>Countermeasure Routine XP</span>
+            <span class="mono text-purple-400">Streak: <span id="kpi-streak-days">6</span> SOLs</span>
+          </div>
+          <div class="mt-1.5 flex items-baseline justify-between">
+            <span id="kpi-xp-value" class="text-2xl font-bold mono text-purple-300">420 XP</span>
+            <span id="kpi-xp-sub" class="text-xs text-slate-400">3/5 Daily Tasks Done</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- VIEW 1: INTERACTIVE BODY MAP & CREW VITALS DASHBOARD      -->
+    <!-- ========================================================= -->
+    <section id="view-dashboard" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column (5 cols): Interactive Clickable SVG Human Figure -->
+        <div class="lg:col-span-5 glass-card rounded-2xl p-4 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h2 class="text-sm sm:text-base font-bold text-white">Interactive Astronaut Body Map</h2>
+              <span class="text-xs text-sky-400">Click any anatomical region</span>
+            </div>
+            <p class="text-xs text-slate-400 mb-3">
+              Color-coded status reflects live biomarkers mapped to NASA's 5 Hazards of Human Spaceflight.
+            </p>
+          </div>
+
+          <!-- Clickable SVG Anatomical Figure -->
+          <div class="relative flex items-center justify-center bg-slate-950/80 rounded-xl border border-slate-800/80 p-3 my-1">
+            <svg id="astronaut-svg" viewBox="0 0 320 480" class="w-full max-w-[290px] h-auto select-none" xmlns="http://www.w3.org/2000/svg">
+              <line x1="20" y1="80" x2="300" y2="80" stroke="#1e293b" stroke-dasharray="3 3" stroke-width="1"/>
+              <line x1="20" y1="175" x2="300" y2="175" stroke="#1e293b" stroke-dasharray="3 3" stroke-width="1"/>
+              <line x1="20" y1="265" x2="300" y2="265" stroke="#1e293b" stroke-dasharray="3 3" stroke-width="1"/>
+              <line x1="20" y1="365" x2="300" y2="365" stroke="#1e293b" stroke-dasharray="3 3" stroke-width="1"/>
+              <line x1="160" y1="15" x2="160" y2="465" stroke="#1e293b" stroke-dasharray="3 3" stroke-width="1"/>
+
+              <circle cx="160" cy="62" r="42" fill="#0f172a" stroke="#334155" stroke-width="1.5"/>
+              <path d="M110 115 C110 105, 210 105, 210 115 L235 225 L212 232 L198 150 L198 275 L212 440 L174 440 L164 310 L156 310 L146 440 L108 440 L122 275 L122 150 L108 232 L85 225 Z" fill="#0f172a" stroke="#334155" stroke-width="1.5"/>
+
+              <g id="svg-zone-neuro" onclick="selectBodyZone('neuro')" class="body-zone zone-selected">
+                <circle id="fill-zone-neuro" cx="160" cy="58" r="28" fill="#10b981" fill-opacity="0.28" stroke="#10b981" stroke-width="2"/>
+                <ellipse cx="150" cy="54" rx="5" ry="3" fill="#38bdf8"/>
+                <ellipse cx="170" cy="54" rx="5" ry="3" fill="#38bdf8"/>
+                <text x="160" y="72" text-anchor="middle" fill="#e2e8f0" font-size="9" font-family="Inter">CNS / Ocular</text>
+              </g>
+
+              <g id="svg-zone-behavioral" onclick="selectBodyZone('behavioral')" class="body-zone">
+                <rect id="fill-zone-behavioral" x="214" y="34" width="92" height="32" rx="10" fill="#10b981" fill-opacity="0.22" stroke="#10b981" stroke-width="1.8"/>
+                <line x1="188" y1="50" x2="214" y2="50" stroke="#64748b" stroke-width="1.2" stroke-dasharray="2 2"/>
+                <text x="260" y="48" text-anchor="middle" fill="#f8fafc" font-size="9.5" font-weight="600" font-family="Inter">Behavioral</text>
+                <text x="260" y="60" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="Inter">Sleep / Mood</text>
+              </g>
+
+              <g id="svg-zone-cardio" onclick="selectBodyZone('cardio')" class="body-zone">
+                <rect id="fill-zone-cardio" x="128" y="118" width="64" height="68" rx="16" fill="#10b981" fill-opacity="0.28" stroke="#10b981" stroke-width="2"/>
+                <path d="M152 148 L157 140 L163 158 L168 144 L174 148" fill="none" stroke="#f8fafc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <text x="160" y="174" text-anchor="middle" fill="#f8fafc" font-size="9.5" font-family="Inter">Cardio / Chest</text>
+              </g>
+
+              <g id="svg-zone-immune" onclick="selectBodyZone('immune')" class="body-zone">
+                <rect id="fill-zone-immune" x="14" y="128" width="90" height="36" rx="10" fill="#10b981" fill-opacity="0.22" stroke="#10b981" stroke-width="1.8"/>
+                <line x1="104" y1="146" x2="128" y2="146" stroke="#64748b" stroke-width="1.2" stroke-dasharray="2 2"/>
+                <text x="59" y="143" text-anchor="middle" fill="#f8fafc" font-size="9.5" font-weight="600" font-family="Inter">Immune / Temp</text>
+                <text x="59" y="155" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="Inter">Radiation / WBC</text>
+              </g>
+
+              <g id="svg-zone-renal" onclick="selectBodyZone('renal')" class="body-zone">
+                <rect id="fill-zone-renal" x="130" y="196" width="60" height="64" rx="16" fill="#10b981" fill-opacity="0.28" stroke="#10b981" stroke-width="2"/>
+                <text x="160" y="224" text-anchor="middle" fill="#f8fafc" font-size="9.5" font-weight="600" font-family="Inter">Renal / GI</text>
+                <text x="160" y="238" text-anchor="middle" fill="#cbd5e1" font-size="8" font-family="Inter">Glucose / Stones</text>
+              </g>
+
+              <g id="svg-zone-musculo" onclick="selectBodyZone('musculo')" class="body-zone">
+                <path id="fill-zone-musculo" d="M124 272 L196 272 L205 426 L175 426 L164 308 L156 308 L145 426 L115 426 Z" fill="#10b981" fill-opacity="0.26" stroke="#10b981" stroke-width="2"/>
+                <text x="160" y="294" text-anchor="middle" fill="#f8fafc" font-size="9.5" font-weight="600" font-family="Inter">Musculoskeletal</text>
+                <text x="160" y="365" text-anchor="middle" fill="#cbd5e1" font-size="8.5" font-family="Inter">Bone Density</text>
+              </g>
+            </svg>
+          </div>
+
+          <!-- Quick Region Selector Pills -->
+          <div class="grid grid-cols-3 gap-1.5 mt-2">
+            <button type="button" onclick="selectBodyZone('neuro')" class="px-2 py-1.5 rounded-lg text-xs bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 truncate">CNS &amp; Ocular</button>
+            <button type="button" onclick="selectBodyZone('cardio')" class="px-2 py-1.5 rounded-lg text-xs bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 truncate">Cardiovascular</button>
+            <button type="button" onclick="selectBodyZone('renal')" class="px-2 py-1.5 rounded-lg text-xs bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 truncate">Renal &amp; Glucose</button>
+            <button type="button" onclick="selectBodyZone('musculo')" class="px-2 py-1.5 rounded-lg text-xs bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 truncate">Bone &amp; Muscle</button>
+            <button type="button" onclick="selectBodyZone('immune')" class="px-2 py-1.5 rounded-lg text-xs bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 truncate">Immune &amp; Temp</button>
+            <button type="button" onclick="selectBodyZone('behavioral')" class="px-2 py-1.5 rounded-lg text-xs bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 truncate">Sleep &amp; Mood</button>
+          </div>
+        </div>
+
+        <!-- Right Column (7 cols): Anatomical System Inspector & Live Vitals Grid -->
+        <div class="lg:col-span-7 flex flex-col gap-5">
+
+          <!-- Selected Body System Detail Card -->
+          <div class="glass-card rounded-2xl p-5 space-y-4">
+            <div class="flex flex-wrap items-start justify-between gap-2 border-b border-slate-800 pb-3">
+              <div>
+                <span id="inspector-hazard-tag" class="text-xs font-semibold uppercase tracking-wider text-sky-400">
+                  Hazard: Altered Gravity Fields &amp; Space Radiation
+                </span>
+                <h3 id="inspector-title" class="text-lg font-bold text-white mt-0.5">
+                  Head, Ocular &amp; Central Nervous System (SANS)
+                </h3>
+              </div>
+              <span id="inspector-status-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                NOMINAL STATUS
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs sm:text-sm">
+              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5">
+                <div class="font-semibold text-sky-300">Function &amp; Spaceflight Risk Mechanism</div>
+                <p id="inspector-function" class="text-slate-300 text-xs leading-relaxed">
+                  Microgravity shifts ~2 liters of bodily fluid toward the head, increasing intracranial and intraocular pressure (Spaceflight-Associated Neuro-ocular Syndrome, SANS) and flattening the globe of the eye.
+                </p>
+              </div>
+              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5">
+                <div class="font-semibold text-amber-300">Non-Physician Measurement Guide</div>
+                <p id="inspector-measurement" class="text-slate-300 text-xs leading-relaxed">
+                  Apply water-soluble gel to the closed eyelid and use the high-frequency linear ultrasound probe to measure Optic Nerve Sheath Diameter (ONSD &gt; 5.8 mm warrants flight-surgeon review).
+                </p>
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-slate-950/90 border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-emerald-400">Recommended Action &amp; Escalation Protocol</span>
+                <button type="button" onclick="switchView('logger')" class="text-xs text-sky-400 hover:underline font-medium">
+                  Log New Reading →
+                </button>
+              </div>
+              <p id="inspector-action" class="text-xs text-slate-300 leading-relaxed">
+                Maintain lower-body negative pressure (LBNP) countermeasures and weekly ocular ultrasound checks. Escalate to ground flight surgeons if visual acuity drops or persistent headaches occur.
+              </p>
+            </div>
+          </div>
+
+          <!-- 6 Core Health Indicators Status Grid -->
+          <div class="glass-card rounded-2xl p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm sm:text-base font-bold text-white">Live Astronaut Health Indicators (Color-Coded At-a-Glance)</h3>
+              <span class="text-xs text-slate-400">NASA Spaceflight Standard Measures</span>
+            </div>
+
+            <div id="vitals-cards-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <!-- Populated dynamically by renderVitalsGrid() -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- VIEW 2: MULTI-MODAL VITALS LOGGER & DIAGNOSTIC INPUT      -->
+    <!-- ========================================================= -->
+    <section id="view-logger" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column (7 cols): Keyboard & Slider Health Indicator Form -->
+        <div class="lg:col-span-7 glass-card rounded-2xl p-5 space-y-4">
+          <div class="border-b border-slate-800 pb-3 flex items-center justify-between">
+            <div>
+              <h2 class="text-base sm:text-lg font-bold text-white">Multi-Modal Crew Health Indicator Logger</h2>
+              <p class="text-xs text-slate-400">Enter measurements via keyboard numbers, sliders, or diagnostic ultrasound presets.</p>
+            </div>
+            <span class="text-xs px-2.5 py-1 rounded-md bg-sky-500/15 text-sky-300 mono">SOL-08 Entry</span>
+          </div>
+
+          <form id="vitals-log-form" onsubmit="submitVitalsLog(event)" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                <label for="input-bp-sys" class="block text-xs font-semibold text-slate-200">
+                  Blood Pressure (Systolic / Diastolic mmHg)
+                </label>
+                <div class="flex items-center gap-2">
+                  <input id="input-bp-sys" type="number" min="70" max="220" value="118" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white mono text-sm" required />
+                  <span class="text-slate-400 font-bold">/</span>
+                  <input id="input-bp-dia" type="number" min="40" max="140" value="76" aria-label="Diastolic Blood Pressure" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white mono text-sm" required />
+                </div>
+                <p class="text-[11px] text-slate-400">Nominal: 95–129 / 60–84 mmHg (Spacecraft cuff at heart level)</p>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                <div class="flex justify-between text-xs">
+                  <label for="input-hr" class="font-semibold text-slate-200">Heart Rate (bpm)</label>
+                  <span id="label-hr-val" class="mono text-sky-400">64 bpm</span>
+                </div>
+                <input id="input-hr" type="range" min="38" max="165" value="64" oninput="syncLoggerReadout()" class="w-full accent-sky-400" />
+                <p class="text-[11px] text-slate-400">Nominal resting: 52–85 bpm | Caution: &gt;95 bpm | Emergency: &gt;120 bpm</p>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                <div class="flex justify-between text-xs">
+                  <label for="input-glucose" class="font-semibold text-slate-200">Blood Sugar / Glucose (mg/dL)</label>
+                  <span id="label-glucose-val" class="mono text-sky-400">89 mg/dL</span>
+                </div>
+                <input id="input-glucose" type="number" min="45" max="300" value="89" oninput="syncLoggerReadout()" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white mono text-sm" required />
+                <p class="text-[11px] text-slate-400">Nominal fasting: 72–105 mg/dL (Fingerstick capillary strip)</p>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                <div class="flex justify-between text-xs">
+                  <label for="input-temp" class="font-semibold text-slate-200">Core Body Temperature (°C)</label>
+                  <span id="label-temp-val" class="mono text-sky-400">36.8 °C</span>
+                </div>
+                <input id="input-temp" type="number" step="0.1" min="35.0" max="41.0" value="36.8" oninput="syncLoggerReadout()" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white mono text-sm" required />
+                <p class="text-[11px] text-slate-400">Nominal: 36.3–37.3 °C | Fever / Immune Alert: &ge;37.8 °C</p>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                <div class="flex justify-between text-xs">
+                  <label for="input-sleep" class="font-semibold text-slate-200">Daily Sleep Duration (hrs / 24h)</label>
+                  <span id="label-sleep-val" class="mono text-sky-400">7.2 hrs</span>
+                </div>
+                <input id="input-sleep" type="range" step="0.2" min="2.0" max="10.0" value="7.2" oninput="syncLoggerReadout()" class="w-full accent-sky-400" />
+                <p class="text-[11px] text-slate-400">ARCHeR Target: 7.0–8.5 hrs | Circadian risk: &lt;6.0 hrs</p>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                <div class="flex justify-between text-xs">
+                  <label for="input-mood" class="font-semibold text-slate-200">Mood Score (1–10) &amp; Hydration (L)</label>
+                  <span id="label-mood-val" class="mono text-sky-400">8/10 | 2.3L</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <input id="input-mood" type="number" min="1" max="10" value="8" oninput="syncLoggerReadout()" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white mono text-sm" required />
+                  <input id="input-hydration" type="number" step="0.1" min="0.5" max="4.5" value="2.3" aria-label="Daily Hydration Liters" oninput="syncLoggerReadout()" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white mono text-sm" required />
+                </div>
+                <p class="text-[11px] text-slate-400">NASA SHOP Hydration minimum: 2.1–2.5 L/day (prevents renal stones)</p>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <button type="submit" class="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs sm:text-sm transition shadow-lg shadow-sky-500/20">
+                Evaluate &amp; Append to Mission Telemetry
+              </button>
+              <span id="logger-feedback-pill" class="text-xs text-emerald-300 mono">
+                Ready for crew self-assessment input.
+              </span>
+            </div>
+          </form>
+        </div>
+
+        <!-- Right Column (5 cols): Ultrasound / Camera Diagnostic Capture & Non-Physician Guide -->
+        <div class="lg:col-span-5 glass-card rounded-2xl p-5 flex flex-col justify-between space-y-4">
+          <div class="space-y-3">
+            <h3 class="text-base font-bold text-white">Camera &amp; Ultrasound Image Analyzer</h3>
+            <p class="text-xs text-slate-400">
+              Select a spacecraft diagnostic imaging mode or upload a capture to view non-physician probe placement instructions and automated anomaly screening.
+            </p>
+
+            <div class="space-y-2">
+              <label for="select-imaging-mode" class="block text-xs font-semibold text-slate-300">Select Onboard Diagnostic Modality:</label>
+              <select id="select-imaging-mode" onchange="updateImagingPreset()" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs sm:text-sm text-white">
+                <option value="ocular">Ocular Ultrasound — Optic Nerve Sheath (SANS Check)</option>
+                <option value="renal">Renal / Bladder Ultrasound — Kidney Stone Screen</option>
+                <option value="cardiac">Parasternal Long-Axis Cardiac Echo — Chest Pain Triage</option>
+                <option value="saliva">Dry Saliva Booklet Capture — Immune Stress Assay</option>
+              </select>
+            </div>
+
+            <!-- Simulated Ultrasound / Optical Viewport -->
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span id="imaging-viewport-title" class="font-semibold text-sky-400 mono">SONO-HUD // OCULAR ONSD SCAN</span>
+                <span id="imaging-finding-badge" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 mono text-[11px]">ONSD: 5.1 mm (Nominal)</span>
+              </div>
+              <div class="flex items-center justify-center bg-slate-900/90 rounded-lg p-2 border border-slate-800/80">
+                <svg id="imaging-preview-svg" viewBox="0 0 260 120" class="w-full h-28" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M35 15 L225 15 L250 105 L10 105 Z" fill="#091326" stroke="#334155" stroke-width="1.2"/>
+                  <circle cx="130" cy="52" r="26" fill="#020617" stroke="#64748b" stroke-width="1.8"/>
+                  <rect x="119" y="78" width="22" height="24" fill="#1e293b" stroke="#38bdf8" stroke-dasharray="2 2"/>
+                  <line x1="115" y1="86" x2="145" y2="86" stroke="#10b981" stroke-width="2"/>
+                  <text x="130" y="55" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="JetBrains Mono">GLOBE (0.00g)</text>
+                  <text x="188" y="92" fill="#10b981" font-size="9" font-family="JetBrains Mono">5.1 mm</text>
+                </svg>
+              </div>
+              <div class="pt-1">
+                <label class="block text-[11px] text-slate-400 mb-1" for="custom-image-upload">Optional: Load Custom Camera/Ultrasound Image</label>
+                <input id="custom-image-upload" type="file" accept="image/*" onchange="handleCustomImageUpload(event)" class="block w-full text-xs text-slate-300 file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-sky-500/20 file:text-sky-300 hover:file:bg-sky-500/30" />
+                <img id="custom-upload-preview" alt="Uploaded diagnostic capture preview" class="hidden mt-2 max-h-28 rounded-lg border border-slate-700 mx-auto" />
+              </div>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5 text-xs">
+            <div class="font-semibold text-amber-300">How to Perform This Exam (Astronaut Field Guide)</div>
+            <p id="imaging-guide-text" class="text-slate-300 leading-relaxed">
+              1. Tether yourself to the cabin rack. 2. Apply sterile acoustic coupling gel over the closed upper eyelid. 3. Rest the linear probe lightly without pressing on the globe. 4. Measure 3 mm posterior to the retina to verify Optic Nerve Sheath Diameter.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- VIEW 3: EMERGENCY TRIAGE SIMULATOR & EIMO PROTOCOL GUIDE  -->
+    <!-- ========================================================= -->
+    <section id="view-triage" class="hidden space-y-6">
+      <div class="glass-card rounded-2xl p-5 space-y-5">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <span class="text-xs font-semibold uppercase tracking-wider text-rose-400">Autonomous Crew Decision Support (EIMO)</span>
+            <h2 class="text-base sm:text-lg font-bold text-white mt-0.5">
+              Spaceflight Medical Emergency &amp; Anomaly Scenario Simulator
+            </h2>
+            <p class="text-xs text-slate-400">
+              Select a clinical scenario (including the Brazilian Space Agency challenge video's halfway-to-Mars acute chest pain scenario) to trigger guided non-physician response steps and inject live telemetry into the dashboard.
+            </p>
+          </div>
+          <button type="button" onclick="applyActiveScenarioToDashboard()" class="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-slate-950 font-bold text-xs sm:text-sm transition shrink-0">
+            Simulate Scenario in Live Dashboard
+          </button>
+        </div>
+
+        <!-- Scenario Selector Buttons -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+          <button id="scen-btn-chest" type="button" onclick="selectTriageScenario('chest')" class="p-3 rounded-xl text-left border border-rose-500 bg-rose-500/15 transition">
+            <div class="text-xs font-bold text-rose-300">1. Acute Chest Pain</div>
+            <div class="text-[11px] text-slate-300 mt-0.5">Halfway-to-Mars Collapse</div>
+          </button>
+          <button id="scen-btn-renal" type="button" onclick="selectTriageScenario('renal')" class="p-3 rounded-xl text-left border border-slate-800 bg-slate-900 hover:border-slate-700 transition">
+            <div class="text-xs font-bold text-amber-300">2. Renal Stone Colic</div>
+            <div class="text-[11px] text-slate-400 mt-0.5">#2 NASA IMM Condition</div>
+          </button>
+          <button id="scen-btn-sans" type="button" onclick="selectTriageScenario('sans')" class="p-3 rounded-xl text-left border border-slate-800 bg-slate-900 hover:border-slate-700 transition">
+            <div class="text-xs font-bold text-sky-300">3. Severe SANS Ocular</div>
+            <div class="text-[11px] text-slate-400 mt-0.5">Fluid Shift &amp; Vision Blur</div>
+          </button>
+          <button id="scen-btn-radiation" type="button" onclick="selectTriageScenario('radiation')" class="p-3 rounded-xl text-left border border-slate-800 bg-slate-900 hover:border-slate-700 transition">
+            <div class="text-xs font-bold text-purple-300">4. Solar Particle Event</div>
+            <div class="text-[11px] text-slate-400 mt-0.5">Acute Radiation &amp; Fever</div>
+          </button>
+          <button id="scen-btn-behavioral" type="button" onclick="selectTriageScenario('behavioral')" class="p-3 rounded-xl text-left border border-slate-800 bg-slate-900 hover:border-slate-700 transition">
+            <div class="text-xs font-bold text-indigo-300">5. Circadian / Isolation</div>
+            <div class="text-[11px] text-slate-400 mt-0.5">ARCHeR Sleep Deprivation</div>
+          </button>
+        </div>
+
+        <!-- Active Triage Protocol Breakdown -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-2">
+          <div class="lg:col-span-5 p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between">
+              <span id="triage-severity-pill" class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                LEVEL 1 EMERGENCY — AUTONOMOUS ACTION
+              </span>
+              <span id="triage-hazard-label" class="text-xs mono text-slate-400">Radiation + Microgravity</span>
+            </div>
+            <h3 id="triage-title" class="text-base font-bold text-white">
+              Acute Chest Pain &amp; Crewmate Collapse (Mars Transit)
+            </h3>
+            <p id="triage-summary" class="text-xs text-slate-300 leading-relaxed">
+              During deep-space transit (12–20 min one-way radio latency), a crewmate experiences sudden substernal chest pain, tachycardia (138 bpm), hypotension (88/54 mmHg), and syncope. Crew cannot wait for Earth telemetry.
+            </p>
+            <div class="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+              <div class="text-xs font-semibold text-sky-300">When to Alert Crew vs. Flight Surgeons on the Ground</div>
+              <p id="triage-escalation-rule" class="text-xs text-slate-300">
+                IMMEDIATE CREW ACTION FIRST: Execute onboard AED/ECG &amp; restraint protocol immediately; transmit high-priority compressed ECG + echo packet via Store-and-Forward for asynchronous Flight Surgeon follow-up.
+              </p>
+            </div>
+          </div>
+
+          <div class="lg:col-span-7 p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-3">
+            <h4 class="text-sm font-bold text-white">Step-by-Step Non-Physician Crew Action Protocol</h4>
+            <div id="triage-steps-list" class="space-y-2.5 text-xs">
+              <!-- Populated dynamically by renderTriageScenario() -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- VIEW 4: LONGITUDINAL TRENDS & GAMIFIED ROUTINE            -->
+    <!-- ========================================================= -->
+    <section id="view-trends" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column (7 cols): Dynamic SVG Time-Series Charts -->
+        <div class="lg:col-span-7 glass-card rounded-2xl p-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <h2 class="text-base font-bold text-white">Dynamic Health Indicator Trajectories</h2>
+              <p class="text-xs text-slate-400">Tracks mission-day biomarker changes and updates live when you log new vitals or simulate scenarios.</p>
+            </div>
+            <div class="flex gap-1.5">
+              <button id="chart-btn-cardio" type="button" onclick="switchChartMode('cardio')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-sky-500 text-slate-950">
+                Cardio (HR &amp; BP)
+              </button>
+              <button id="chart-btn-metabolic" type="button" onclick="switchChartMode('metabolic')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 border border-slate-700">
+                Glucose &amp; Temp
+              </button>
+              <button id="chart-btn-behavioral" type="button" onclick="switchChartMode('behavioral')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 border border-slate-700">
+                Sleep &amp; Mood
+              </button>
+            </div>
+          </div>
+
+          <div id="trends-svg-container" class="w-full h-72 bg-slate-950/80 rounded-xl border border-slate-800 p-3 flex items-center justify-center">
+            <!-- Populated dynamically by renderTrendsChart() using zero-dependency SVG -->
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 flex flex-wrap items-center justify-between gap-2">
+            <span><strong>NASA SHOP Target Reference:</strong> Protein 1.3–1.6 g/kg/day | Carbs 50–55% kcal | Fat 25–35% kcal | Fiber &ge;40 g/day | Hydration 2.1–2.5 L/day</span>
+            <span class="mono text-sky-400" id="chart-sample-count">8 Mission SOL Logs</span>
+          </div>
+        </div>
+
+        <!-- Right Column (5 cols): Gamified Countermeasure Routine -->
+        <div class="lg:col-span-5 glass-card rounded-2xl p-5 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h3 class="text-base font-bold text-white">Mission Routine &amp; Countermeasure Gamification</h3>
+              <p class="text-xs text-slate-400">Complete daily preventive tasks to earn XP, sustain crew readiness, and mitigate deep-space hazards.</p>
+            </div>
+            <span id="routine-badge-rank" class="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+              Rank: Mars Pathfinder
+            </span>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-300 font-medium">Daily Countermeasure Completion</span>
+              <span id="routine-progress-label" class="mono text-sky-400">60% (3/5 Tasks)</span>
+            </div>
+            <div class="w-full h-2.5 rounded-full bg-slate-900 overflow-hidden border border-slate-800">
+              <div id="routine-progress-bar" class="h-full bg-gradient-to-r from-sky-500 to-emerald-400 transition-all duration-300" style="width: 60%;"></div>
+            </div>
+          </div>
+
+          <!-- Gamified Task List -->
+          <div id="gamified-tasks-container" class="space-y-2.5">
+            <!-- Rendered by renderGamifiedTasks() -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- VIEW 5: BAYESIAN N-OF-1 DIGITAL TWIN & MONTE CARLO IMM SIMULATOR    -->
+    <!-- =================================================================== -->
+    <section id="view-quantum" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column (6 cols): Hierarchical Bayesian N-of-1 Posterior Digital Twin -->
+        <div class="lg:col-span-6 glass-card rounded-2xl p-5 space-y-4">
+          <div class="flex items-start justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider text-sky-400">NASA HRP Artemis II Data Methodology Engine</span>
+              <h2 class="text-base sm:text-lg font-bold text-white mt-0.5">
+                Hierarchical Bayesian N-of-1 Physiological Digital Twin
+              </h2>
+              <p class="text-xs text-slate-400 mt-0.5">
+                Combines NASA Spaceflight Standard Measures (SSM) cohort priors with your astronaut's personal longitudinal SOL history to separate benign 0g adaptation from true pre-symptomatic pathology.
+              </p>
+            </div>
+            <span id="bayes-kl-badge" class="px-2.5 py-1 rounded-full text-xs font-bold mono bg-sky-500/20 text-sky-300 border border-sky-500/40 shrink-0">
+              D_KL: 0.14 bits
+            </span>
+          </div>
+
+          <!-- Posterior Calibration Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b border-slate-800 text-slate-400">
+                  <th class="py-2 pr-2">Biomarker</th>
+                  <th class="py-2 px-2">SSM Prior</th>
+                  <th class="py-2 px-2">Personal Posterior</th>
+                  <th class="py-2 px-2">Live Reading</th>
+                  <th class="py-2 pl-2 text-right">Posterior Z-Score</th>
+                </tr>
+              </thead>
+              <tbody id="bayesian-twin-tbody" class="divide-y divide-slate-800/70 mono">
+                <!-- Populated dynamically by renderBayesianTwin() -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 5-Hazard Non-Linear Coupling Tensor Readout -->
+          <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-indigo-300">5-Hazard Non-Linear Synergy Matrix (H_5x5 Coupling)</span>
+              <span id="synergy-multiplier-badge" class="mono text-emerald-300 font-bold">Synergy Multiplier: 1.12x</span>
+            </div>
+            <p id="synergy-explanation-text" class="text-xs text-slate-300 leading-relaxed">
+              Models cross-hazard amplification: Microgravity bone demineralization (1–1.5%/mo) coupled with Hostile/Closed habitat hydration dictates renal calcium oxalate supersaturation; Radiation coupled with Altered Gravity accelerates vascular endothelial stiffness.
+            </p>
+          </div>
+        </div>
+
+        <!-- Right Column (6 cols): 500-Run Monte Carlo NASA IMM Probabilistic Risk Simulator -->
+        <div class="lg:col-span-6 glass-card rounded-2xl p-5 space-y-4">
+          <div class="flex items-start justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider text-purple-400">Probabilistic Risk Assessment (PRA)</span>
+              <h3 class="text-base sm:text-lg font-bold text-white mt-0.5">
+                500-Trajectory NASA IMM Monte Carlo Mission Simulator
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">
+                Adjust mission duration, radiation shielding, and countermeasure adherence to forecast Total Medical Events (TME), Quality-Adjusted Time Lost (QTL), and Loss of Crew Life (LOCL) probability.
+              </p>
+            </div>
+            <button type="button" onclick="runMonteCarloSimulation()" class="px-3 py-1.5 rounded-xl bg-purple-500 hover:bg-purple-400 text-slate-950 font-bold text-xs transition shrink-0">
+              Re-Run 500 Sims
+            </button>
+          </div>
+
+          <!-- 3 Interactive Simulation Sliders -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <div class="flex justify-between mb-1">
+                <label for="mc-sols" class="text-slate-300 font-medium">Mission SOLs</label>
+                <span id="mc-sols-label" class="mono text-sky-400">500</span>
+              </div>
+              <input id="mc-sols" type="range" min="30" max="900" step="10" value="500" oninput="runMonteCarloSimulation()" class="w-full accent-sky-400" />
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <div class="flex justify-between mb-1">
+                <label for="mc-shielding" class="text-slate-300 font-medium">Shielding (g/cm²)</label>
+                <span id="mc-shielding-label" class="mono text-sky-400">20</span>
+              </div>
+              <input id="mc-shielding" type="range" min="5" max="40" step="1" value="20" oninput="runMonteCarloSimulation()" class="w-full accent-sky-400" />
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <div class="flex justify-between mb-1">
+                <label for="mc-adherence" class="text-slate-300 font-medium">SHOP+ARED (%)</label>
+                <span id="mc-adherence-label" class="mono text-sky-400">85%</span>
+              </div>
+              <input id="mc-adherence" type="range" min="10" max="100" step="5" value="85" oninput="runMonteCarloSimulation()" class="w-full accent-sky-400" />
+            </div>
+          </div>
+
+          <!-- 3 Monte Carlo Output Readouts -->
+          <div class="grid grid-cols-3 gap-2.5 text-xs">
+            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+              <div class="text-slate-400 text-[11px]">Expected Medical Events</div>
+              <div id="mc-out-tme" class="text-base font-bold mono text-sky-300 mt-0.5">2.4 TME</div>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+              <div class="text-slate-400 text-[11px]">Quality Time Lost (QTL)</div>
+              <div id="mc-out-qtl" class="text-base font-bold mono text-amber-300 mt-0.5">18.6 hrs</div>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+              <div class="text-slate-400 text-[11px]">P(EVAC / LOCL) Risk</div>
+              <div id="mc-out-locl" class="text-base font-bold mono text-emerald-300 mt-0.5">0.82%</div>
+            </div>
+          </div>
+
+          <div id="monte-carlo-svg-container" class="w-full h-64 bg-slate-950/80 rounded-xl border border-slate-800 p-3 flex items-center justify-center">
+            <!-- Populated dynamically by runMonteCarloSimulation() using zero-dependency SVG -->
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer Grounding Attribution -->
+  <footer class="border-t border-slate-800/80 bg-slate-950 py-3 px-4 text-center text-xs text-slate-400">
+    Built for the <strong>2026 NASA Space Apps Challenge</strong> ("Create Health Monitoring Software for Astronauts on Space Missions") • Grounded in NASA Human Research Program (HRP), Spaceflight Standard Measures, Integrated Medical Model (IMM), and SHOP Nutritional Countermeasures.
+  </footer>
+
+  <script>
+    // ============================================================================
+    // APPLICATION STATE & GROUNDED NASA HRP DATA MODEL
+    // ============================================================================
+    var appState = {
+      currentView: 'dashboard',
+      environment: 'transit',
+      selectedZone: 'neuro',
+      activeScenario: 'chest',
+      chartMode: 'cardio',
+      streakDays: 6,
+      baseXP: 240,
+      vitals: {
+        bpSys: 118,
+        bpDia: 76,
+        hr: 64,
+        glucose: 89,
+        temp: 36.8,
+        sleep: 7.2,
+        mood: 8,
+        hydration: 2.3
+      },
+      history: [
+        { sol: 'SOL-01', bpSys: 120, bpDia: 78, hr: 66, glucose: 91, temp: 36.7, sleep: 7.5, mood: 8, hydration: 2.4 },
+        { sol: 'SOL-02', bpSys: 119, bpDia: 77, hr: 65, glucose: 88, temp: 36.8, sleep: 7.0, mood: 8, hydration: 2.2 },
+        { sol: 'SOL-03', bpSys: 122, bpDia: 79, hr: 68, glucose: 93, temp: 36.9, sleep: 6.8, mood: 7, hydration: 2.1 },
+        { sol: 'SOL-04', bpSys: 117, bpDia: 75, hr: 63, glucose: 87, temp: 36.7, sleep: 7.4, mood: 8, hydration: 2.5 },
+        { sol: 'SOL-05', bpSys: 121, bpDia: 78, hr: 67, glucose: 90, temp: 36.8, sleep: 7.1, mood: 8, hydration: 2.3 },
+        { sol: 'SOL-06', bpSys: 118, bpDia: 76, hr: 65, glucose: 89, temp: 36.8, sleep: 7.3, mood: 9, hydration: 2.4 },
+        { sol: 'SOL-07', bpSys: 118, bpDia: 76, hr: 64, glucose: 89, temp: 36.8, sleep: 7.2, mood: 8, hydration: 2.3 }
+      ],
+      routineTasks: [
+        {
+          id: 'task-ared',
+          title: 'ARED Resistive & Treadmill Exercise (60 min)',
+          hazard: 'Gravity Fields (Counters 1–1.5%/mo Bone Density Loss)',
+          xp: 60,
+          done: true
+        },
+        {
+          id: 'task-shop',
+          title: 'NASA SHOP Hydration (2.1–2.5 L) & Fiber (>=40 g)',
+          hazard: 'Hostile/Closed Environment & Renal Stone Prevention',
+          xp: 60,
+          done: true
+        },
+        {
+          id: 'task-ssm',
+          title: 'Spaceflight Standard Measures Morning Vitals Log',
+          hazard: 'Distance from Earth (Autonomous Crew Self-Assessment)',
+          xp: 60,
+          done: true
+        },
+        {
+          id: 'task-archer',
+          title: 'ARCHeR Circadian Blue-Light & Sleep Hygiene Protocol',
+          hazard: 'Isolation & Confinement (Circadian Alignment)',
+          xp: 50,
+          done: false
+        },
+        {
+          id: 'task-ocular',
+          title: 'Weekly Ocular ONSD Ultrasound & Cabin CO2 Audit',
+          hazard: 'Space Radiation & Cephalad Fluid Shift (SANS)',
+          xp: 70,
+          done: false
+        }
+      ]
+    };
+
+    var ENVIRONMENTS = {
+      station: {
+        name: 'Space Station (LEO - ISS)',
+        gravity: '0.00g Microgravity',
+        latency: '1.8s Near-Real-Time',
+        hazardSummary: 'Altered Gravity + Closed Habitat',
+        boneLoss: 'Bone -1.0%/mo',
+        description: 'Low Earth Orbit (ISS): Partial geomagnetic radiation protection, 0.00g cephalad fluid shifts, real-time ground flight surgeon telemetry, and emergency Soyuz/Crew Dragon return capability within hours.'
+      },
+      transit: {
+        name: 'Deep Space Transit (0.00g)',
+        gravity: '0.00g Weightlessness',
+        latency: '12m 40s One-Way Delay',
+        hazardSummary: 'GCR/SPE Radiation + 0.00g',
+        boneLoss: 'Bone -1.5%/mo',
+        description: 'Deep Space Transit (Orion / Mars Cruise): Exposed to galactic cosmic rays and solar particle events beyond Earth magnetosphere, 1–1.5%/month bone mineral loss, up to 20-minute one-way radio delay, and zero evacuation capability.'
+      },
+      rover: {
+        name: 'Surface Rover (EVA Excursion)',
+        gravity: '0.16g Moon / 0.38g Mars',
+        latency: '6m 15s Relay Delay',
+        hazardSummary: 'Suit Decompression + Fatigue',
+        boneLoss: 'High Metabolic EVA Cost',
+        description: 'Pressurized Surface Rover Excursion: Constrained cabin volume, elevated spacesuit metabolic expenditure, decompression sickness and barotrauma risks during frequent airlock cycles.'
+      },
+      base: {
+        name: 'Planetary Base (0.38g Mars)',
+        gravity: '0.38g (3/8 Earth Gravity)',
+        latency: '18m 20s Deep Space Link',
+        hazardSummary: 'Isolation + Regolith Dust',
+        boneLoss: 'Partial Gravity Adaptation',
+        description: 'Planetary Surface Habitat (Lunar South Pole / Mars Outpost): Crew lives and works in 3/8g for up to 2 years, facing abrasive regolith dust inhalation, prolonged isolation, and complete medical self-reliance.'
+      }
+    };
+
+    var BODY_ZONES = {
+      neuro: {
+        title: 'Head, Ocular & Central Nervous System (SANS)',
+        hazard: 'Hazard: Altered Gravity Fields & Space Radiation',
+        functionText: 'Microgravity shifts ~2 liters of bodily fluid toward the head, elevating intracranial and intraocular pressure (Spaceflight-Associated Neuro-ocular Syndrome, SANS) while cosmic radiation challenges neural and cognitive function.',
+        measurementText: 'Apply sterile gel to the closed eyelid and use the high-frequency linear ultrasound probe to measure Optic Nerve Sheath Diameter (ONSD > 5.8 mm indicates elevated pressure). Complete a 3-minute digital reaction-time test.',
+        nominalAction: 'Continue Lower Body Negative Pressure (LBNP) sessions and weekly ocular ultrasound checks. Log any visual blurring or persistent frontal headaches.',
+        cautionAction: 'Perform immediate bilateral ocular ultrasound, inspect cabin CO2 partial pressure (<3 mmHg target), and schedule asynchronous flight-surgeon consult.'
+      },
+      cardio: {
+        title: 'Cardiovascular & Cardiopulmonary System',
+        hazard: 'Hazard: Altered Gravity & Space Radiation Endothelial Stress',
+        functionText: 'Prolonged weightlessness leads to plasma volume reduction, cardiac muscle deconditioning, diminished stroke volume, and radiation-accelerated vascular stiffness or arrhythmia risk.',
+        measurementText: 'Place the automated brachial cuff on the upper left arm at heart level after 5 minutes of seated/tethered rest. For chest pain, attach the 3-lead wearable ECG patch and parasternal ultrasound probe.',
+        nominalAction: 'Maintain 60-minute daily aerobic and resistive exercise countermeasure protocol and 2.1–2.5 L/day fluid intake.',
+        cautionAction: 'CRITICAL/CAUTION: Halt strenuous EVA/exercise immediately, run 12-lead ECG + cardiac echo protocol, administer onboard oxygen if SpO2 < 94%, and transmit Priority-1 EIMO packet.'
+      },
+      renal: {
+        title: 'Renal, Metabolic & Gastrointestinal System',
+        hazard: 'Hazard: Bone Demineralization Hypercalciuria & Closed Nutrition',
+        functionText: 'As weight-bearing bones shed 1–1.5% mineral density per month in microgravity, calcium is excreted through the kidneys—making kidney stones (nephrolithiasis) the #2 medical event in NASA Integrated Medical Model (IMM) simulations.',
+        measurementText: 'Perform a fasting capillary fingerstick blood glucose check (mg/dL), log 24-hour fluid intake, and use urine dipstick strips to screen for hematuria, pH, and specific gravity.',
+        nominalAction: 'Follow NASA SHOP nutrition targets: 2.1–2.5 L/day hydration, 1.3–1.6 g/kg/day protein, 50–55% kcal carbohydrates, and >=40 g/day dietary fiber.',
+        cautionAction: 'Increase oral hydration to >2.8 L/day, administer potassium citrate / tamsulosin from the onboard medical kit if flank colic is present, and scan kidneys via ultrasound for hydronephrosis.'
+      },
+      musculo: {
+        title: 'Musculoskeletal System & Weight-Bearing Spine/Femur',
+        hazard: 'Hazard: Gravity Fields (0g Transit to 0.38g Mars / 1g Earth)',
+        functionText: 'Without Earth gravitational loading, astronauts lose 1–1.5% of weight-bearing bone mineral density per month and experience skeletal muscle atrophy, increasing fracture risk during planetary landing or moonwalk egress.',
+        measurementText: 'Log daily Advanced Resistive Exercise Device (ARED) load metrics (squat/deadlift force) and perform isometric mid-thigh pull strength checks.',
+        nominalAction: 'Complete full 60-minute daily ARED resistance + treadmill harness session and consume 1.3–1.6 g/kg/day protein with Vitamin D3/K2 supplementation.',
+        cautionAction: 'Adjust ARED harness loading, apply targeted neuromuscular electrical stimulation, and verify zero caloric deficit.'
+      },
+      immune: {
+        title: 'Immune, Hematologic & Thermoregulatory System',
+        hazard: 'Hazard: Space Radiation & Hostile/Closed Environments',
+        functionText: 'Space radiation, stress hormones, and closed-habitat microbial exchange alter T-cell function and can reactivate latent herpesviruses, elevating infection and inflammatory risks.',
+        measurementText: 'Measure core temperature via tympanic/forehead sensor (°C) and collect a dry saliva booklet sample (Artemis II Immune Biomarkers protocol) for cortisol and viral shedding analysis.',
+        nominalAction: 'Keep cabin HEPA filtration active, sanitize shared exercise surfaces, and maintain antioxidant-rich nutrition.',
+        cautionAction: 'Isolate symptomatic crewmember from shared air-return vents, collect microbial swab + blood assay, initiate empirical oral countermeasure if bacterial infection is suspected, and notify flight surgeons.'
+      },
+      behavioral: {
+        title: 'Behavioral Health, Sleep & Circadian Readiness',
+        hazard: 'Hazard: Isolation & Confinement (ARCHeR Study Domain)',
+        functionText: 'Confinement in a small cabin, 90-minute orbital sunrises or dim transit lighting, and high workload cause circadian desynchronization, sleep loss, mood decline, and cognitive fatigue.',
+        measurementText: 'Log 24-hour actigraphy sleep duration (hours) and complete the 1–10 ARCHeR Behavioral Readiness & Mood self-assessment scale.',
+        nominalAction: 'Use blue-enriched LED cabin lighting (480 nm) during mission morning and warm dim light 2 hours prior to sleep.',
+        cautionAction: 'Protected 8-hour sleep recovery window required: reduce non-essential mission tasks, initiate private crew behavioral decompression protocol, and schedule confidential psychological support video message.'
+      }
+    };
+
+    var TRIAGE_SCENARIOS = {
+      chest: {
+        title: 'Acute Chest Pain & Crewmate Collapse (Mars Transit)',
+        severity: 'LEVEL 1 EMERGENCY — IMMEDIATE AUTONOMOUS ACTION',
+        hazard: 'Cardiovascular / Arrhythmia / Ischemia',
+        summary: 'Directly models the 2026 NASA Space Apps Challenge video scenario: halfway to Mars (12m 40s one-way comms delay), a crewmate feels sharp substernal chest pain and collapses. Vitals show tachycardia (138 bpm), hypotension (88/54 mmHg), and diaphoresis.',
+        escalationRule: 'DO NOT WAIT FOR EARTH TELEMETRY: Execute onboard stabilization and AED/ECG attach immediately. Transmit compressed Priority-1 EIMO telemetry packet to Houston Flight Surgeons for asynchronous guidance.',
+        vitalsOverride: { bpSys: 88, bpDia: 54, hr: 138, glucose: 112, temp: 36.5, sleep: 6.0, mood: 4, hydration: 1.9 },
+        targetZone: 'cardio',
+        steps: [
+          '1. Restrain & Airway (0–60 sec): Secure the patient in the crew medical restraint system so they do not float in 0g; verify airway, breathing, and carotid pulse.',
+          '2. Attach Wearable ECG & AED Pads (1–2 min): Apply chest electrodes; check for shockable rhythm (VF/VT) or ST-segment elevation. Administer 100% O2 via mask at 4 L/min.',
+          '3. Anti-Platelet & Sublingual Meds (2–4 min): If conscious and Systolic BP > 90 mmHg, administer chewed Aspirin (324 mg) from the Exploration Medical Kit.',
+          '4. Focused Cardiac Ultrasound (5–8 min): Use the Parasternal Long-Axis preset in the Vitals Logger to check for pericardial effusion or severe left-ventricular wall hypokinesis.',
+          '5. Store-and-Forward Ground Packet (8+ min): Dispatch the 30-second ECG waveform, ultrasound clip, and vitals JSON to Mission Control.'
+        ]
+      },
+      renal: {
+        title: 'Acute Flank Colic & Hematuria (Renal Stone / Nephrolithiasis)',
+        severity: 'LEVEL 2 URGENT — ONBOARD MEDICAL KIT + GROUND CONSULT',
+        hazard: 'Altered Gravity Bone Calcium Excretion + Dehydration',
+        summary: 'Per NASA Integrated Medical Model (IMM), kidney stones are the #2 most likely reason for spaceflight medical intervention due to microgravity bone demineralization (1–1.5%/mo) combined with sub-optimal hydration (<2.1 L/day).',
+        escalationRule: 'Initiate autonomous analgesia and hydration immediately; escalate to Ground Flight Surgeons if fever (>=38.0 °C) or complete urinary obstruction appears on ultrasound.',
+        vitalsOverride: { bpSys: 144, bpDia: 92, hr: 104, glucose: 98, temp: 37.4, sleep: 5.2, mood: 4, hydration: 1.3 },
+        targetZone: 'renal',
+        steps: [
+          '1. Urine Dipstick Verification: Confirm microscopic or gross hematuria and check urine pH using onboard colorimetric strips.',
+          '2. Analgesia & Alpha-Blocker Expulsion Therapy: Administer oral ketorolac/ibuprofen for renal colic and tamsulosin (0.4 mg) to facilitate ureteral stone passage.',
+          '3. Renal & Bladder Ultrasound Scan: Switch Logger to Renal Ultrasound preset to measure bladder volume and check for unilateral hydronephrosis.',
+          '4. Aggressive Hydration Bolus: Increase fluid intake to >= 2.8 L/day (or IV normal saline via pressure-infusion bag if nausea prevents oral intake).'
+        ]
+      },
+      sans: {
+        title: 'Blurred Near Vision & Headache (Neuro-Ocular Syndrome - SANS)',
+        severity: 'LEVEL 2 CAUTION — DIAGNOSTIC ULTRASOUND & CO2 AUDIT',
+        hazard: 'Microgravity Cephalad Fluid Shift + Cabin CO2',
+        summary: 'Astronaut reports progressive hyperopic shift (difficulty reading close displays) and mild throbbing frontal headache on SOL-08.',
+        escalationRule: 'Non-emergent autonomous exam: record bilateral Optic Nerve Sheath Diameter (ONSD) and send images to Space Medicine team on standard telemetry pass.',
+        vitalsOverride: { bpSys: 134, bpDia: 86, hr: 78, glucose: 92, temp: 36.9, sleep: 6.4, mood: 6, hydration: 2.2 },
+        targetZone: 'neuro',
+        steps: [
+          '1. Ocular Ultrasound Measurement: Measure Optic Nerve Sheath Diameter 3 mm behind the globe (readings > 5.8 mm confirm elevated sheath distension).',
+          '2. Cabin CO2 Scrubbing Check: Inspect local habitat CO2 sensors (ensure partial pressure is < 3.0 mmHg) and adjust air fan flow over crew quarters.',
+          '3. Countermeasure Deployment: Fit Space Anticipation Glasses (adjustable diopter lenses) and complete a 45-minute Lower Body Negative Pressure (LBNP) session.'
+        ]
+      },
+      radiation: {
+        title: 'Solar Particle Event (SPE) Prodromal Fever & Immune Dip',
+        severity: 'LEVEL 1 EMERGENCY — STORM SHELTER & BIOMARKER ASSAY',
+        hazard: 'Space Radiation (Solar Particle Event) & Immune Changes',
+        summary: 'Following a solar flare warning in deep space, crewmember develops low-grade fever (38.3 °C), fatigue, mild nausea, and elevated resting heart rate (108 bpm).',
+        escalationRule: 'IMMEDIATE SHELTERING: Verify entire crew is inside the high-mass water-wall radiation storm shelter and transmit dosimetry + blood/saliva assay to Radiation Health Officer.',
+        vitalsOverride: { bpSys: 112, bpDia: 72, hr: 108, glucose: 118, temp: 38.3, sleep: 5.8, mood: 5, hydration: 1.8 },
+        targetZone: 'immune',
+        steps: [
+          '1. Verify Storm Shelter Shielding: Confirm crew remains inside the spacecraft radiation shelter until onboard dosimeters drop below alert threshold.',
+          '2. Administer Antiemetic & Cytoprotective Protocol: Provide oral ondansetron (4 mg) for radiation-induced nausea and electrolyte rehydration solution.',
+          '3. Point-of-Care Blood & Dry Saliva Assay: Run fingerstick leukocyte differential and dry saliva stress/immune biomarker capture to track lymphocyte kinetics.'
+        ]
+      },
+      behavioral: {
+        title: 'Severe Circadian Desynchronization & Behavioral Fatigue',
+        severity: 'LEVEL 2 CAUTION — ARCHeR SLEEP & WORKLOAD INTERVENTION',
+        hazard: 'Isolation & Confinement + High Operational Workload',
+        summary: 'Three consecutive days of < 5.0 hours sleep and high EVA scheduling lead to mood score drop (3/10), irritability, and delayed cognitive reaction time.',
+        escalationRule: 'Crew Commander & Medical Officer adjust local timeline autonomously; schedule asynchronous private behavioral health audio/video sync.',
+        vitalsOverride: { bpSys: 132, bpDia: 85, hr: 88, glucose: 106, temp: 36.7, sleep: 4.4, mood: 3, hydration: 1.7 },
+        targetZone: 'behavioral',
+        steps: [
+          '1. Enforce 8-Hour Protected Sleep Window: Defer non-critical maintenance tasks for the next 24 hours.',
+          '2. Dynamic Lighting Reset: Set habitat LEDs to 480 nm blue-enriched high-lux mode upon wake-up and zero-blue dim mode 120 minutes before sleep.',
+          '3. Guided Decompression & Nutrition: Provide high-tryptophan/carbohydrate evening meal (50–55% kcal carb SHOP ratio) and private crew leisure block.'
+        ]
+      }
+    };
+
+    var IMAGING_PRESETS = {
+      ocular: {
+        title: 'SONO-HUD // OCULAR ONSD SCAN',
+        badge: 'ONSD: 5.1 mm (Nominal < 5.8 mm)',
+        guide: '1. Tether yourself to the cabin rack. 2. Apply sterile acoustic coupling gel over the closed upper eyelid. 3. Rest the high-frequency linear probe lightly without pressing on the globe. 4. Measure 3 mm posterior to the retina to verify Optic Nerve Sheath Diameter.',
+        svgMarkup: '<path d="M35 15 L225 15 L250 105 L10 105 Z" fill="#091326" stroke="#334155" stroke-width="1.2"/><circle cx="130" cy="52" r="26" fill="#020617" stroke="#64748b" stroke-width="1.8"/><rect x="119" y="78" width="22" height="24" fill="#1e293b" stroke="#38bdf8" stroke-dasharray="2 2"/><line x1="115" y1="86" x2="145" y2="86" stroke="#10b981" stroke-width="2"/><text x="130" y="55" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="JetBrains Mono">GLOBE (0.00g)</text><text x="188" y="92" fill="#10b981" font-size="9" font-family="JetBrains Mono">5.1 mm</text>'
+      },
+      renal: {
+        title: 'SONO-HUD // RENAL RIGHT FLANK SCAN',
+        badge: 'No Hydronephrosis / No Calculi > 2mm',
+        guide: '1. Position phased-array probe at the right mid-axillary line (intercostal space 9–11). 2. Angle slightly posteriorly to visualize the renal cortex and pelvis in longitudinal axis. 3. Look for acoustic shadowing indicative of calcium oxalate stones.',
+        svgMarkup: '<path d="M30 15 L230 15 L250 105 L10 105 Z" fill="#091326" stroke="#334155" stroke-width="1.2"/><ellipse cx="130" cy="62" rx="48" ry="26" fill="#0f172a" stroke="#38bdf8" stroke-width="1.8"/><ellipse cx="130" cy="62" rx="22" ry="11" fill="#1e293b" stroke="#10b981" stroke-width="1.4"/><text x="130" y="65" text-anchor="middle" fill="#e2e8f0" font-size="9" font-family="JetBrains Mono">RENAL PELVIS CLEAR</text>'
+      },
+      cardiac: {
+        title: 'SONO-HUD // PARASTERNAL LONG-AXIS ECHO',
+        badge: 'LVEF: ~62% | Normal Wall Motion',
+        guide: '1. In 0g, the heart shifts slightly cephalad and rotates anteriorly. 2. Place phased-array probe at the 3rd–4th left intercostal space next to the sternum, indicator pointing toward the right shoulder. 3. Record a 6-second loop for flight surgeon review.',
+        svgMarkup: '<path d="M35 15 L225 15 L250 105 L10 105 Z" fill="#091326" stroke="#334155" stroke-width="1.2"/><path d="M75 68 Q130 28 185 68 Q130 98 75 68 Z" fill="#0f172a" stroke="#38bdf8" stroke-width="1.8"/><polyline points="45,88 85,88 95,68 103,98 112,52 120,88 165,88 175,72 215,88" fill="none" stroke="#10b981" stroke-width="1.8"/><text x="130" y="42" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="JetBrains Mono">LV CHAMBER (0.00g)</text>'
+      },
+      saliva: {
+        title: 'OPTICAL ASSAY // DRY SALIVA IMMUNE BOOKLET',
+        badge: 'Cortisol & IgA Within Baseline',
+        guide: '1. Collect passive drool onto the Artemis II dry-saliva filter paper strip upon waking before brushing teeth. 2. Allow 15 minutes to air dry in cabin airflow. 3. Capture colorimetric reference strip under cabin white LED light.',
+        svgMarkup: '<rect x="30" y="22" width="200" height="76" rx="10" fill="#0f172a" stroke="#334155" stroke-width="1.5"/><rect x="52" y="44" width="32" height="32" rx="6" fill="#10b981" fill-opacity="0.4" stroke="#10b981"/><rect x="114" y="44" width="32" height="32" rx="6" fill="#38bdf8" fill-opacity="0.4" stroke="#38bdf8"/><rect x="176" y="44" width="32" height="32" rx="6" fill="#a855f7" fill-opacity="0.4" stroke="#a855f7"/><text x="130" y="36" text-anchor="middle" fill="#cbd5e1" font-size="8.5" font-family="JetBrains Mono">IMMUNE BIOMARKER STRIP</text>'
+      }
+    };
+
+    // ============================================================================
+    // STATUS EVALUATION LOGIC (COLOR CODING & TRIAGE THRESHOLDS)
+    // ============================================================================
+    function evaluateIndicatorStatus(key, v) {
+      if (key === 'bp') {
+        if (v.bpSys >= 140 || v.bpSys < 90 || v.bpDia >= 90 || v.bpDia < 58) return 'critical';
+        if (v.bpSys >= 130 || v.bpSys < 95 || v.bpDia >= 85) return 'caution';
+        return 'nominal';
+      }
+      if (key === 'hr') {
+        if (v.hr >= 115 || v.hr < 45) return 'critical';
+        if (v.hr >= 92 || v.hr < 50) return 'caution';
+        return 'nominal';
+      }
+      if (key === 'glucose') {
+        if (v.glucose >= 140 || v.glucose < 65) return 'critical';
+        if (v.glucose >= 106 || v.glucose < 72) return 'caution';
+        return 'nominal';
+      }
+      if (key === 'temp') {
+        if (v.temp >= 38.0 || v.temp < 35.6) return 'critical';
+        if (v.temp >= 37.4 || v.temp < 36.1) return 'caution';
+        return 'nominal';
+      }
+      if (key === 'sleep') {
+        if (v.sleep < 5.2) return 'critical';
+        if (v.sleep < 6.5) return 'caution';
+        return 'nominal';
+      }
+      if (key === 'mood') {
+        if (v.mood <= 4 || v.hydration < 1.5) return 'critical';
+        if (v.mood <= 6 || v.hydration < 2.1) return 'caution';
+        return 'nominal';
+      }
+      return 'nominal';
+    }
+
+    function getZoneStatus(zoneId) {
+      var v = appState.vitals;
+      if (zoneId === 'cardio') {
+        var bpS = evaluateIndicatorStatus('bp', v);
+        var hrS = evaluateIndicatorStatus('hr', v);
+        if (bpS === 'critical' || hrS === 'critical') return 'critical';
+        if (bpS === 'caution' || hrS === 'caution') return 'caution';
+        return 'nominal';
+      }
+      if (zoneId === 'renal') {
+        var glS = evaluateIndicatorStatus('glucose', v);
+        if (glS === 'critical' || v.hydration < 1.5) return 'critical';
+        if (glS === 'caution' || v.hydration < 2.1) return 'caution';
+        return 'nominal';
+      }
+      if (zoneId === 'immune') {
+        return evaluateIndicatorStatus('temp', v);
+      }
+      if (zoneId === 'behavioral') {
+        var slS = evaluateIndicatorStatus('sleep', v);
+        var mdS = evaluateIndicatorStatus('mood', v);
+        if (slS === 'critical' || mdS === 'critical') return 'critical';
+        if (slS === 'caution' || mdS === 'caution') return 'caution';
+        return 'nominal';
+      }
+      if (zoneId === 'neuro') {
+        if (v.bpSys >= 134 && v.sleep < 6.5) return 'caution';
+        return 'nominal';
+      }
+      if (zoneId === 'musculo') {
+        var aredTask = appState.routineTasks[0];
+        return (aredTask && aredTask.done) ? 'nominal' : 'caution';
+      }
+      return 'nominal';
+    }
+
+    function statusColorHex(status) {
+      if (status === 'critical') return '#f43f5e';
+      if (status === 'caution') return '#f59e0b';
+      return '#10b981';
+    }
+
+    // ============================================================================
+    // UI RENDERERS
+    // ============================================================================
+    function showToast(msg) {
+      var banner = document.getElementById('toast-banner');
+      var textEl = document.getElementById('toast-message');
+      if (banner && textEl) {
+        textEl.textContent = msg;
+        banner.classList.remove('hidden');
+      }
+    }
+
+    function hideToast() {
+      var banner = document.getElementById('toast-banner');
+      if (banner) banner.classList.add('hidden');
+    }
+
+    function switchView(viewName) {
+      appState.currentView = viewName;
+      var views = ['dashboard', 'logger', 'triage', 'trends', 'quantum'];
+      for (var i = 0; i < views.length; i++) {
+        var v = views[i];
+        var sec = document.getElementById('view-' + v);
+        var btn = document.getElementById('tab-btn-' + v);
+        if (sec) {
+          if (v === viewName) sec.classList.remove('hidden');
+          else sec.classList.add('hidden');
+        }
+        if (btn) {
+          if (v === viewName) {
+            btn.className = 'px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-sky-500 text-slate-950 transition';
+          } else {
+            btn.className = 'px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-slate-900 text-slate-300 hover:bg-slate-800 transition';
+          }
+        }
+      }
+      if (viewName === 'trends') {
+        renderTrendsChart();
+      }
+      if (viewName === 'quantum') {
+        renderBayesianTwin();
+        runMonteCarloSimulation();
+      }
+    }
+
+    function selectEnvironment(envKey) {
+      if (!ENVIRONMENTS[envKey]) return;
+      appState.environment = envKey;
+      var env = ENVIRONMENTS[envKey];
+
+      var keys = ['station', 'transit', 'rover', 'base'];
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        var btn = document.getElementById('env-btn-' + k);
+        if (btn) {
+          if (k === envKey) {
+            btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-300 border border-sky-400 transition';
+          } else {
+            btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-900 text-slate-300 border border-slate-700 hover:border-sky-400 transition';
+          }
+        }
+      }
+
+      document.getElementById('header-env-badge').textContent = env.name;
+      document.getElementById('header-latency-badge').textContent = env.latency;
+      document.getElementById('env-description-text').textContent = env.description;
+      document.getElementById('kpi-hazard-value').textContent = env.hazardSummary;
+      document.getElementById('kpi-hazard-sub').textContent = env.boneLoss;
+
+      renderAll();
+      showToast('Switched mission environment profile to ' + env.name + '.');
+    }
+
+    function selectBodyZone(zoneId) {
+      if (!BODY_ZONES[zoneId]) return;
+      appState.selectedZone = zoneId;
+      var zones = ['neuro', 'cardio', 'renal', 'musculo', 'immune', 'behavioral'];
+      for (var i = 0; i < zones.length; i++) {
+        var z = zones[i];
+        var gEl = document.getElementById('svg-zone-' + z);
+        if (gEl) {
+          if (z === zoneId) gEl.classList.add('zone-selected');
+          else gEl.classList.remove('zone-selected');
+        }
+      }
+      renderZoneInspector();
+    }
+
+    function renderZoneInspector() {
+      var zId = appState.selectedZone;
+      var info = BODY_ZONES[zId];
+      var status = getZoneStatus(zId);
+
+      document.getElementById('inspector-hazard-tag').textContent = info.hazard;
+      document.getElementById('inspector-title').textContent = info.title;
+      document.getElementById('inspector-function').textContent = info.functionText;
+      document.getElementById('inspector-measurement').textContent = info.measurementText;
+
+      var badge = document.getElementById('inspector-status-badge');
+      var actionEl = document.getElementById('inspector-action');
+      if (status === 'critical') {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40';
+        badge.textContent = 'CRITICAL ALERT — ACTION REQUIRED';
+        actionEl.textContent = info.cautionAction;
+      } else if (status === 'caution') {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40';
+        badge.textContent = 'CAUTION — ELEVATED RISK';
+        actionEl.textContent = info.cautionAction;
+      } else {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+        badge.textContent = 'NOMINAL STATUS';
+        actionEl.textContent = info.nominalAction;
+      }
+    }
+
+    function renderSvgBodyColors() {
+      var zones = ['neuro', 'cardio', 'renal', 'musculo', 'immune', 'behavioral'];
+      for (var i = 0; i < zones.length; i++) {
+        var z = zones[i];
+        var st = getZoneStatus(z);
+        var col = statusColorHex(st);
+        var shape = document.getElementById('fill-zone-' + z);
+        if (shape) {
+          shape.setAttribute('fill', col);
+          shape.setAttribute('stroke', col);
+        }
+      }
+    }
+
+    function renderVitalsGrid() {
+      var v = appState.vitals;
+      var cards = [
+        {
+          label: 'Blood Pressure',
+          value: v.bpSys + '/' + v.bpDia + ' mmHg',
+          target: '95–129 / 60–84 mmHg',
+          status: evaluateIndicatorStatus('bp', v),
+          zone: 'cardio'
+        },
+        {
+          label: 'Heart Rate',
+          value: v.hr + ' bpm',
+          target: '52–85 bpm resting',
+          status: evaluateIndicatorStatus('hr', v),
+          zone: 'cardio'
+        },
+        {
+          label: 'Blood Sugar (Glucose)',
+          value: v.glucose + ' mg/dL',
+          target: '72–105 mg/dL fasting',
+          status: evaluateIndicatorStatus('glucose', v),
+          zone: 'renal'
+        },
+        {
+          label: 'Body Temperature',
+          value: v.temp.toFixed(1) + ' °C',
+          target: '36.3–37.3 °C core',
+          status: evaluateIndicatorStatus('temp', v),
+          zone: 'immune'
+        },
+        {
+          label: 'Daily Sleep Duration',
+          value: v.sleep.toFixed(1) + ' hrs',
+          target: '7.0–8.5 hrs (ARCHeR)',
+          status: evaluateIndicatorStatus('sleep', v),
+          zone: 'behavioral'
+        },
+        {
+          label: 'Mood & Hydration',
+          value: v.mood + '/10 • ' + v.hydration.toFixed(1) + ' L',
+          target: 'Mood >=7 • Water 2.1–2.5L',
+          status: evaluateIndicatorStatus('mood', v),
+          zone: 'behavioral'
+        }
+      ];
+
+      var html = '';
+      var criticalCount = 0;
+      var cautionCount = 0;
+
+      for (var i = 0; i < cards.length; i++) {
+        var c = cards[i];
+        var borderCls = 'border-emerald-500/30 bg-emerald-500/5';
+        var pillCls = 'bg-emerald-500/20 text-emerald-300';
+        var pillText = 'Nominal';
+        if (c.status === 'critical') {
+          borderCls = 'border-rose-500/50 bg-rose-500/10';
+          pillCls = 'bg-rose-500/25 text-rose-300';
+          pillText = 'Critical';
+          criticalCount++;
+        } else if (c.status === 'caution') {
+          borderCls = 'border-amber-500/40 bg-amber-500/10';
+          pillCls = 'bg-amber-500/25 text-amber-300';
+          pillText = 'Caution';
+          cautionCount++;
+        }
+
+        html += '<div onclick="selectBodyZone(\'' + c.zone + '\')" class="cursor-pointer p-3 rounded-xl border ' + borderCls + ' hover:border-sky-400/60 transition">' +
+          '<div class="flex items-center justify-between text-xs">' +
+            '<span class="text-slate-300 font-medium">' + c.label + '</span>' +
+            '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ' + pillCls + '">' + pillText + '</span>' +
+          '</div>' +
+          '<div class="mt-1.5 text-lg font-bold mono text-white">' + c.value + '</div>' +
+          '<div class="mt-0.5 text-[11px] text-slate-400">Target: ' + c.target + '</div>' +
+        '</div>';
+      }
+
+      var container = document.getElementById('vitals-cards-grid');
+      if (container) container.innerHTML = html;
+
+      var chi = Math.max(35, 98 - (criticalCount * 18) - (cautionCount * 7));
+      var chiValEl = document.getElementById('kpi-chi-value');
+      var chiSubEl = document.getElementById('kpi-chi-sub');
+      var escValEl = document.getElementById('kpi-escalation-value');
+      var escSubEl = document.getElementById('kpi-escalation-sub');
+      var headerBadge = document.getElementById('header-overall-status');
+
+      chiValEl.textContent = chi + '%';
+      if (criticalCount > 0) {
+        chiValEl.className = 'text-2xl font-bold mono text-rose-400';
+        chiSubEl.className = 'text-xs text-rose-300';
+        chiSubEl.textContent = criticalCount + ' Critical Indicator(s)';
+        escValEl.textContent = 'Priority-1 EIMO + Flight Surgeon';
+        escValEl.className = 'text-base font-bold text-rose-400';
+        escSubEl.textContent = 'Immediate onboard triage active';
+        headerBadge.className = 'px-3 py-1.5 rounded-lg bg-rose-500/20 border border-rose-500/50 text-rose-300 font-semibold flex items-center gap-1.5';
+        headerBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span><span>MEDICAL ALERT (' + criticalCount + ')</span>';
+      } else if (cautionCount > 0) {
+        chiValEl.className = 'text-2xl font-bold mono text-amber-400';
+        chiSubEl.className = 'text-xs text-amber-300';
+        chiSubEl.textContent = cautionCount + ' Caution Indicator(s)';
+        escValEl.textContent = 'Async Flight Surgeon Consult';
+        escValEl.className = 'text-base font-bold text-amber-300';
+        escSubEl.textContent = 'Countermeasure adjustment needed';
+        headerBadge.className = 'px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/50 text-amber-300 font-semibold flex items-center gap-1.5';
+        headerBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span>CAUTION MONITOR (' + cautionCount + ')</span>';
+      } else {
+        chiValEl.className = 'text-2xl font-bold mono text-emerald-400';
+        chiSubEl.className = 'text-xs text-emerald-300';
+        chiSubEl.textContent = 'Functional Capacity High';
+        escValEl.textContent = 'Routine Store & Forward';
+        escValEl.className = 'text-base font-bold text-sky-300';
+        escSubEl.textContent = 'No acute trigger';
+        headerBadge.className = 'px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-semibold flex items-center gap-1.5';
+        headerBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>CREW NOMINAL</span>';
+      }
+    }
+
+    // ============================================================================
+    // LOGGER & IMAGING CONTROLS
+    // ============================================================================
+    function syncLoggerReadout() {
+      var hr = Number(document.getElementById('input-hr').value) || 64;
+      var gl = Number(document.getElementById('input-glucose').value) || 89;
+      var tp = Number(document.getElementById('input-temp').value) || 36.8;
+      var sl = Number(document.getElementById('input-sleep').value) || 7.2;
+      var md = Number(document.getElementById('input-mood').value) || 8;
+      var hy = Number(document.getElementById('input-hydration').value) || 2.3;
+
+      document.getElementById('label-hr-val').textContent = hr + ' bpm';
+      document.getElementById('label-glucose-val').textContent = gl + ' mg/dL';
+      document.getElementById('label-temp-val').textContent = tp.toFixed(1) + ' °C';
+      document.getElementById('label-sleep-val').textContent = sl.toFixed(1) + ' hrs';
+      document.getElementById('label-mood-val').textContent = md + '/10 | ' + hy.toFixed(1) + 'L';
+    }
+
+    function submitVitalsLog(e) {
+      if (e) e.preventDefault();
+      var bpSys = Math.min(240, Math.max(60, Number(document.getElementById('input-bp-sys').value) || 118));
+      var bpDia = Math.min(150, Math.max(40, Number(document.getElementById('input-bp-dia').value) || 76));
+      var hr = Math.min(180, Math.max(35, Number(document.getElementById('input-hr').value) || 64));
+      var glucose = Math.min(350, Math.max(40, Number(document.getElementById('input-glucose').value) || 89));
+      var temp = Math.min(41.5, Math.max(34.5, Number(document.getElementById('input-temp').value) || 36.8));
+      var sleep = Math.min(12.0, Math.max(1.0, Number(document.getElementById('input-sleep').value) || 7.2));
+      var mood = Math.min(10, Math.max(1, Number(document.getElementById('input-mood').value) || 8));
+      var hydration = Math.min(5.0, Math.max(0.3, Number(document.getElementById('input-hydration').value) || 2.3));
+
+      appState.vitals = {
+        bpSys: bpSys,
+        bpDia: bpDia,
+        hr: hr,
+        glucose: glucose,
+        temp: temp,
+        sleep: sleep,
+        mood: mood,
+        hydration: hydration
+      };
+
+      var nextSolNum = appState.history.length + 1;
+      var solLabel = 'SOL-' + (nextSolNum < 10 ? '0' + nextSolNum : nextSolNum);
+      appState.history.push({
+        sol: solLabel,
+        bpSys: bpSys,
+        bpDia: bpDia,
+        hr: hr,
+        glucose: glucose,
+        temp: temp,
+        sleep: sleep,
+        mood: mood,
+        hydration: hydration
+      });
+
+      document.getElementById('logger-feedback-pill').textContent = 'Logged ' + solLabel + ' telemetry and updated dashboard!';
+      renderAll();
+      showToast('Saved ' + solLabel + ' vitals log and recalculated Crew Health Index.');
+    }
+
+    function updateImagingPreset() {
+      var mode = document.getElementById('select-imaging-mode').value;
+      var preset = IMAGING_PRESETS[mode] || IMAGING_PRESETS.ocular;
+      document.getElementById('imaging-viewport-title').textContent = preset.title;
+      document.getElementById('imaging-finding-badge').textContent = preset.badge;
+      document.getElementById('imaging-guide-text').textContent = preset.guide;
+      document.getElementById('imaging-preview-svg').innerHTML = preset.svgMarkup;
+    }
+
+    function handleCustomImageUpload(event) {
+      var file = event.target.files && event.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(loadEvt) {
+        var img = document.getElementById('custom-upload-preview');
+        if (img && loadEvt.target && loadEvt.target.result) {
+          img.src = loadEvt.target.result;
+          img.classList.remove('hidden');
+          document.getElementById('imaging-finding-badge').textContent = 'Custom Capture Loaded (' + file.name.slice(0, 18) + ')';
+          showToast('Diagnostic image loaded into onboard analyzer.');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ============================================================================
+    // EMERGENCY TRIAGE SIMULATOR
+    // ============================================================================
+    function selectTriageScenario(scenKey) {
+      if (!TRIAGE_SCENARIOS[scenKey]) return;
+      appState.activeScenario = scenKey;
+      var keys = ['chest', 'renal', 'sans', 'radiation', 'behavioral'];
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        var btn = document.getElementById('scen-btn-' + k);
+        if (btn) {
+          if (k === scenKey) {
+            btn.className = 'p-3 rounded-xl text-left border border-rose-500 bg-rose-500/15 transition';
+          } else {
+            btn.className = 'p-3 rounded-xl text-left border border-slate-800 bg-slate-900 hover:border-slate-700 transition';
+          }
+        }
+      }
+      renderTriageScenario();
+    }
+
+    function renderTriageScenario() {
+      var scen = TRIAGE_SCENARIOS[appState.activeScenario];
+      document.getElementById('triage-severity-pill').textContent = scen.severity;
+      document.getElementById('triage-hazard-label').textContent = scen.hazard;
+      document.getElementById('triage-title').textContent = scen.title;
+      document.getElementById('triage-summary').textContent = scen.summary;
+      document.getElementById('triage-escalation-rule').textContent = scen.escalationRule;
+
+      var stepsHtml = '';
+      for (var i = 0; i < scen.steps.length; i++) {
+        stepsHtml += '<div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 leading-relaxed">' +
+          scen.steps[i] +
+        '</div>';
+      }
+      document.getElementById('triage-steps-list').innerHTML = stepsHtml;
+    }
+
+    function applyActiveScenarioToDashboard() {
+      var scen = TRIAGE_SCENARIOS[appState.activeScenario];
+      var o = scen.vitalsOverride;
+      appState.vitals = {
+        bpSys: o.bpSys,
+        bpDia: o.bpDia,
+        hr: o.hr,
+        glucose: o.glucose,
+        temp: o.temp,
+        sleep: o.sleep,
+        mood: o.mood,
+        hydration: o.hydration
+      };
+      appState.selectedZone = scen.targetZone;
+
+      document.getElementById('input-bp-sys').value = o.bpSys;
+      document.getElementById('input-bp-dia').value = o.bpDia;
+      document.getElementById('input-hr').value = o.hr;
+      document.getElementById('input-glucose').value = o.glucose;
+      document.getElementById('input-temp').value = o.temp;
+      document.getElementById('input-sleep').value = o.sleep;
+      document.getElementById('input-mood').value = o.mood;
+      document.getElementById('input-hydration').value = o.hydration;
+      syncLoggerReadout();
+
+      var nextSolNum = appState.history.length + 1;
+      var solLabel = 'SOL-' + (nextSolNum < 10 ? '0' + nextSolNum : nextSolNum);
+      appState.history.push({
+        sol: solLabel,
+        bpSys: o.bpSys,
+        bpDia: o.bpDia,
+        hr: o.hr,
+        glucose: o.glucose,
+        temp: o.temp,
+        sleep: o.sleep,
+        mood: o.mood,
+        hydration: o.hydration
+      });
+
+      selectBodyZone(scen.targetZone);
+      renderAll();
+      switchView('dashboard');
+      showToast('Simulated "' + scen.title + '" on the live Body Map & Dashboard.');
+    }
+
+    function resetToNominalBaseline() {
+      appState.vitals = {
+        bpSys: 118,
+        bpDia: 76,
+        hr: 64,
+        glucose: 89,
+        temp: 36.8,
+        sleep: 7.2,
+        mood: 8,
+        hydration: 2.3
+      };
+      document.getElementById('input-bp-sys').value = 118;
+      document.getElementById('input-bp-dia').value = 76;
+      document.getElementById('input-hr').value = 64;
+      document.getElementById('input-glucose').value = 89;
+      document.getElementById('input-temp').value = 36.8;
+      document.getElementById('input-sleep').value = 7.2;
+      document.getElementById('input-mood').value = 8;
+      document.getElementById('input-hydration').value = 2.3;
+      syncLoggerReadout();
+      renderAll();
+      showToast('Crew vitals restored to nominal baseline.');
+    }
+
+    // ============================================================================
+    // GAMIFIED ROUTINE & ZERO-DEPENDENCY SVG LONGITUDINAL TRENDS CHART
+    // ============================================================================
+    function toggleRoutineTask(taskId) {
+      for (var i = 0; i < appState.routineTasks.length; i++) {
+        if (appState.routineTasks[i].id === taskId) {
+          appState.routineTasks[i].done = !appState.routineTasks[i].done;
+          break;
+        }
+      }
+      renderGamifiedTasks();
+      renderSvgBodyColors();
+      renderZoneInspector();
+    }
+
+    function renderGamifiedTasks() {
+      var doneCount = 0;
+      var earnedXP = appState.baseXP;
+      var html = '';
+
+      for (var i = 0; i < appState.routineTasks.length; i++) {
+        var t = appState.routineTasks[i];
+        if (t.done) {
+          doneCount++;
+          earnedXP += t.xp;
+        }
+        var boxCls = t.done
+          ? 'border-emerald-500/40 bg-emerald-500/10'
+          : 'border-slate-800 bg-slate-900/90 hover:border-slate-700';
+        var titleCls = t.done ? 'line-through text-slate-400' : 'text-white';
+
+        html += '<div onclick="toggleRoutineTask(\'' + t.id + '\')" class="cursor-pointer p-3 rounded-xl border ' + boxCls + ' flex items-center justify-between gap-3 transition">' +
+          '<div class="flex items-start gap-2.5">' +
+            '<input type="checkbox" ' + (t.done ? 'checked' : '') + ' aria-label="' + t.title + '" class="mt-1 accent-emerald-400 pointer-events-none" />' +
+            '<div>' +
+              '<div class="text-xs font-semibold ' + titleCls + '">' + t.title + '</div>' +
+              '<div class="text-[11px] text-slate-400">' + t.hazard + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<span class="px-2 py-0.5 rounded text-xs font-bold mono bg-purple-500/20 text-purple-300 shrink-0">+' + t.xp + ' XP</span>' +
+        '</div>';
+      }
+
+      var container = document.getElementById('gamified-tasks-container');
+      if (container) container.innerHTML = html;
+
+      var total = appState.routineTasks.length;
+      var pct = Math.round((doneCount / total) * 100);
+      document.getElementById('routine-progress-label').textContent = pct + '% (' + doneCount + '/' + total + ' Tasks)';
+      document.getElementById('routine-progress-bar').style.width = pct + '%';
+      document.getElementById('kpi-xp-value').textContent = earnedXP + ' XP';
+      document.getElementById('kpi-xp-sub').textContent = doneCount + '/' + total + ' Daily Tasks Done';
+
+      var rankEl = document.getElementById('routine-badge-rank');
+      if (doneCount === total) {
+        rankEl.textContent = 'Rank: Deep Space Flight Surgeon ★';
+      } else if (doneCount >= 3) {
+        rankEl.textContent = 'Rank: Mars Pathfinder';
+      } else {
+        rankEl.textContent = 'Rank: Lunar Cadet';
+      }
+    }
+
+    function switchChartMode(mode) {
+      appState.chartMode = mode;
+      var modes = ['cardio', 'metabolic', 'behavioral'];
+      for (var i = 0; i < modes.length; i++) {
+        var m = modes[i];
+        var btn = document.getElementById('chart-btn-' + m);
+        if (btn) {
+          if (m === mode) {
+            btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-sky-500 text-slate-950';
+          } else {
+            btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-300 border border-slate-700';
+          }
+        }
+      }
+      renderTrendsChart();
+    }
+
+    function renderTrendsChart() {
+      var container = document.getElementById('trends-svg-container');
+      if (!container) return;
+
+      var hist = appState.history;
+      var n = hist.length;
+      document.getElementById('chart-sample-count').textContent = n + ' Mission SOL Logs';
+
+      var label1 = 'Systolic BP (mmHg)';
+      var label2 = 'Heart Rate (bpm)';
+      if (appState.chartMode === 'metabolic') {
+        label1 = 'Blood Sugar (mg/dL)';
+        label2 = 'Core Temp (°C)';
+      } else if (appState.chartMode === 'behavioral') {
+        label1 = 'Sleep Duration (hrs)';
+        label2 = 'Mood Score (1-10)';
+      }
+
+      var s1 = [];
+      var s2 = [];
+      var minVal = Infinity;
+      var maxVal = -Infinity;
+
+      for (var i = 0; i < n; i++) {
+        var item = hist[i];
+        var v1 = item.bpSys;
+        var v2 = item.hr;
+        if (appState.chartMode === 'metabolic') {
+          v1 = item.glucose;
+          v2 = item.temp;
+        } else if (appState.chartMode === 'behavioral') {
+          v1 = item.sleep;
+          v2 = item.mood;
+        }
+        s1.push(v1);
+        s2.push(v2);
+        if (v1 < minVal) minVal = v1;
+        if (v2 < minVal) minVal = v2;
+        if (v1 > maxVal) maxVal = v1;
+        if (v2 > maxVal) maxVal = v2;
+      }
+
+      var pad = Math.max(2, (maxVal - minVal) * 0.18);
+      var yMin = Math.max(0, minVal - pad);
+      var yMax = maxVal + pad;
+      if (yMax <= yMin) yMax = yMin + 10;
+
+      var W = 580;
+      var H = 230;
+      var left = 46;
+      var right = W - 20;
+      var top = 28;
+      var bottom = H - 32;
+      var plotW = right - left;
+      var plotH = bottom - top;
+
+      function xCoord(idx) {
+        if (n <= 1) return left + plotW / 2;
+        return left + (idx / (n - 1)) * plotW;
+      }
+      function yCoord(val) {
+        return bottom - ((val - yMin) / (yMax - yMin)) * plotH;
+      }
+
+      var pts1 = [];
+      var pts2 = [];
+      var circles1 = '';
+      var circles2 = '';
+      var xLabels = '';
+
+      for (var j = 0; j < n; j++) {
+        var cx = xCoord(j).toFixed(1);
+        var cy1 = yCoord(s1[j]).toFixed(1);
+        var cy2 = yCoord(s2[j]).toFixed(1);
+        pts1.push(cx + ',' + cy1);
+        pts2.push(cx + ',' + cy2);
+        circles1 += '<circle cx="' + cx + '" cy="' + cy1 + '" r="3.5" fill="#38bdf8" />';
+        circles2 += '<circle cx="' + cx + '" cy="' + cy2 + '" r="3.5" fill="#10b981" />';
+        xLabels += '<text x="' + cx + '" y="' + (H - 10) + '" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="JetBrains Mono">' + hist[j].sol + '</text>';
+      }
+
+      var gridLines = '';
+      for (var g = 0; g <= 4; g++) {
+        var gy = (top + (g / 4) * plotH).toFixed(1);
+        var gVal = (yMax - (g / 4) * (yMax - yMin)).toFixed(1);
+        gridLines += '<line x1="' + left + '" y1="' + gy + '" x2="' + right + '" y2="' + gy + '" stroke="#1e293b" stroke-dasharray="3 3" stroke-width="1" />';
+        gridLines += '<text x="' + (left - 6) + '" y="' + (Number(gy) + 3) + '" text-anchor="end" fill="#64748b" font-size="10" font-family="JetBrains Mono">' + gVal + '</text>';
+      }
+
+      var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">' +
+        gridLines +
+        '<rect x="140" y="4" width="12" height="4" rx="2" fill="#38bdf8" />' +
+        '<text x="157" y="10" fill="#cbd5e1" font-size="10.5" font-family="Inter">' + label1 + '</text>' +
+        '<rect x="320" y="4" width="12" height="4" rx="2" fill="#10b981" />' +
+        '<text x="337" y="10" fill="#cbd5e1" font-size="10.5" font-family="Inter">' + label2 + '</text>' +
+        '<polyline fill="none" stroke="#38bdf8" stroke-width="2.5" points="' + pts1.join(' ') + '" />' +
+        '<polyline fill="none" stroke="#10b981" stroke-width="2.5" points="' + pts2.join(' ') + '" />' +
+        circles1 + circles2 + xLabels +
+      '</svg>';
+
+      container.innerHTML = svg;
+    }
+
+    // ============================================================================
+    // VIEW 5: HIERARCHICAL BAYESIAN N-OF-1 TWIN & MONTE CARLO IMM SIMULATOR
+    // ============================================================================
+    function renderBayesianTwin() {
+      var tbody = document.getElementById('bayesian-twin-tbody');
+      if (!tbody) return;
+
+      var v = appState.vitals;
+      var metrics = [
+        { name: 'Heart Rate (bpm)', priorMean: 68.0, priorSd: 7.5, postMean: 65.1, postSd: 3.2, val: v.hr },
+        { name: 'Systolic BP (mmHg)', priorMean: 121.0, priorSd: 9.0, postMean: 118.9, postSd: 3.8, val: v.bpSys },
+        { name: 'Fasting Glucose (mg/dL)', priorMean: 92.0, priorSd: 8.0, postMean: 89.6, postSd: 3.1, val: v.glucose },
+        { name: 'Core Temp (°C)', priorMean: 36.8, priorSd: 0.3, postMean: 36.77, postSd: 0.14, val: v.temp },
+        { name: 'Sleep Duration (hrs)', priorMean: 7.1, priorSd: 0.8, postMean: 7.18, postSd: 0.35, val: v.sleep }
+      ];
+
+      var html = '';
+      var sumZ2 = 0;
+
+      for (var i = 0; i < metrics.length; i++) {
+        var m = metrics[i];
+        var z = (m.val - m.postMean) / m.postSd;
+        sumZ2 += z * z;
+        var absZ = Math.abs(z);
+        var zCol = 'text-emerald-400';
+        if (absZ >= 2.5) zCol = 'text-rose-400 font-bold';
+        else if (absZ >= 1.6) zCol = 'text-amber-300 font-semibold';
+
+        var sign = z >= 0 ? '+' : '';
+        html += '<tr>' +
+          '<td class="py-2 pr-2 font-sans text-slate-200 font-medium">' + m.name + '</td>' +
+          '<td class="py-2 px-2 text-slate-400">' + m.priorMean.toFixed(1) + ' ± ' + m.priorSd.toFixed(1) + '</td>' +
+          '<td class="py-2 px-2 text-sky-300">' + m.postMean.toFixed(1) + ' ± ' + m.postSd.toFixed(1) + '</td>' +
+          '<td class="py-2 px-2 text-white font-semibold">' + m.val + '</td>' +
+          '<td class="py-2 pl-2 text-right ' + zCol + '">' + sign + z.toFixed(2) + 'σ</td>' +
+        '</tr>';
+      }
+
+      tbody.innerHTML = html;
+
+      var klBits = Math.min(9.99, Math.max(0.05, (sumZ2 / 10.0) + 0.08));
+      var klBadge = document.getElementById('bayes-kl-badge');
+      if (klBadge) {
+        klBadge.textContent = 'D_KL: ' + klBits.toFixed(2) + ' bits';
+        if (klBits > 1.5) {
+          klBadge.className = 'px-2.5 py-1 rounded-full text-xs font-bold mono bg-rose-500/20 text-rose-300 border border-rose-500/40 shrink-0';
+        } else {
+          klBadge.className = 'px-2.5 py-1 rounded-full text-xs font-bold mono bg-sky-500/20 text-sky-300 border border-sky-500/40 shrink-0';
+        }
+      }
+
+      var hydrationFactor = v.hydration < 2.0 ? (2.2 - v.hydration) * 0.45 : 0.05;
+      var sleepFactor = v.sleep < 6.5 ? (6.8 - v.sleep) * 0.18 : 0.04;
+      var synergy = 1.0 + hydrationFactor + sleepFactor;
+      var synBadge = document.getElementById('synergy-multiplier-badge');
+      if (synBadge) {
+        synBadge.textContent = 'Synergy Multiplier: ' + synergy.toFixed(2) + 'x';
+      }
+    }
+
+    function runMonteCarloSimulation() {
+      var solsEl = document.getElementById('mc-sols');
+      var shieldEl = document.getElementById('mc-shielding');
+      var adhEl = document.getElementById('mc-adherence');
+      if (!solsEl || !shieldEl || !adhEl) return;
+
+      var sols = Number(solsEl.value) || 500;
+      var shielding = Number(shieldEl.value) || 20;
+      var adherence = Number(adhEl.value) || 85;
+
+      document.getElementById('mc-sols-label').textContent = sols;
+      document.getElementById('mc-shielding-label').textContent = shielding;
+      document.getElementById('mc-adherence-label').textContent = adherence + '%';
+
+      var durationScale = sols / 365.0;
+      var radFactor = 20.0 / Math.max(5.0, shielding);
+      var countermeasureReduction = 1.0 - (adherence / 100.0) * 0.62;
+
+      var expectedTme = Math.max(0.3, 2.8 * durationScale * Math.pow(radFactor, 0.35) * countermeasureReduction);
+      var expectedQtl = expectedTme * 7.8;
+      var pLocl = Math.min(18.5, Math.max(0.15, expectedTme * 0.34 * (appState.environment === 'station' ? 0.25 : 1.0)));
+
+      document.getElementById('mc-out-tme').textContent = expectedTme.toFixed(2) + ' TME';
+      document.getElementById('mc-out-qtl').textContent = expectedQtl.toFixed(1) + ' hrs';
+      document.getElementById('mc-out-locl').textContent = pLocl.toFixed(2) + '%';
+
+      var container = document.getElementById('monte-carlo-svg-container');
+      if (!container) return;
+
+      var kLabels = ['0 Evt', '1 Evt', '2 Evt', '3 Evt', '4 Evt', '5 Evt', '6+ Evt'];
+      var unmitigatedLambda = 2.8 * durationScale * Math.pow(radFactor, 0.35);
+      var mitigatedLambda = expectedTme;
+
+      function poissonPmf(k, lam) {
+        var fact = 1;
+        for (var j = 2; j <= k; j++) fact *= j;
+        return Math.exp(-lam) * Math.pow(lam, k) / fact;
+      }
+
+      var unmitProbs = [];
+      var mitProbs = [];
+      for (var k = 0; k < 6; k++) {
+        unmitProbs.push(Math.round(poissonPmf(k, unmitigatedLambda) * 1000) / 10);
+        mitProbs.push(Math.round(poissonPmf(k, mitigatedLambda) * 1000) / 10);
+      }
+      var sumU = 0;
+      var sumM = 0;
+      for (var s = 0; s < 6; s++) {
+        sumU += unmitProbs[s];
+        sumM += mitProbs[s];
+      }
+      unmitProbs.push(Math.max(0, Math.round((100 - sumU) * 10) / 10));
+      mitProbs.push(Math.max(0, Math.round((100 - sumM) * 10) / 10));
+
+      var W = 540;
+      var H = 210;
+      var left = 40;
+      var right = W - 16;
+      var top = 26;
+      var bottom = H - 28;
+      var plotW = right - left;
+      var plotH = bottom - top;
+      var maxP = 60;
+
+      for (var mIdx = 0; mIdx < 7; mIdx++) {
+        if (unmitProbs[mIdx] > maxP) maxP = Math.ceil(unmitProbs[mIdx] / 10) * 10;
+        if (mitProbs[mIdx] > maxP) maxP = Math.ceil(mitProbs[mIdx] / 10) * 10;
+      }
+
+      var gridSvg = '';
+      for (var g = 0; g <= 3; g++) {
+        var gy = (top + (g / 3) * plotH).toFixed(1);
+        var gVal = Math.round(maxP - (g / 3) * maxP) + '%';
+        gridSvg += '<line x1="' + left + '" y1="' + gy + '" x2="' + right + '" y2="' + gy + '" stroke="#1e293b" stroke-dasharray="3 3" stroke-width="1" />';
+        gridSvg += '<text x="' + (left - 6) + '" y="' + (Number(gy) + 3) + '" text-anchor="end" fill="#64748b" font-size="9.5" font-family="JetBrains Mono">' + gVal + '</text>';
+      }
+
+      var barsSvg = '';
+      var groupW = plotW / 7;
+      for (var b = 0; b < 7; b++) {
+        var gx = left + b * groupW;
+        var hU = (unmitProbs[b] / maxP) * plotH;
+        var hM = (mitProbs[b] / maxP) * plotH;
+        var yU = bottom - hU;
+        var yM = bottom - hM;
+
+        barsSvg += '<rect x="' + (gx + 8).toFixed(1) + '" y="' + yU.toFixed(1) + '" width="18" height="' + Math.max(1, hU).toFixed(1) + '" rx="3" fill="#f43f5e" fill-opacity="0.75" />';
+        barsSvg += '<rect x="' + (gx + 29).toFixed(1) + '" y="' + yM.toFixed(1) + '" width="18" height="' + Math.max(1, hM).toFixed(1) + '" rx="3" fill="#38bdf8" fill-opacity="0.85" />';
+        barsSvg += '<text x="' + (gx + 27).toFixed(1) + '" y="' + (H - 9) + '" text-anchor="middle" fill="#94a3b8" font-size="9.5" font-family="JetBrains Mono">' + kLabels[b] + '</text>';
+      }
+
+      var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">' +
+        gridSvg +
+        '<rect x="90" y="4" width="10" height="8" rx="2" fill="#f43f5e" />' +
+        '<text x="105" y="11" fill="#cbd5e1" font-size="10" font-family="Inter">Unmitigated Deep Space</text>' +
+        '<rect x="275" y="4" width="10" height="8" rx="2" fill="#38bdf8" />' +
+        '<text x="290" y="11" fill="#cbd5e1" font-size="10" font-family="Inter">AstroPulse EIMO + SHOP/ARED</text>' +
+        barsSvg +
+      '</svg>';
+
+      container.innerHTML = svg;
+    }
+
+    function exportMedicalPacket() {
+      var packet = JSON.stringify({
+        missionProgram: 'NASA Space Apps 2026 - AstroPulse EIMO',
+        team: 'Phantom Developers',
+        environment: ENVIRONMENTS[appState.environment].name,
+        currentVitals: appState.vitals,
+        selectedSystem: appState.selectedZone
+      }, null, 2);
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(packet);
+        } else {
+          var ta = document.createElement('textarea');
+          ta.value = packet;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        showToast('Copied EIMO Flight-Surgeon JSON telemetry packet to clipboard!');
+      } catch (err) {
+        showToast('Telemetry JSON packet prepared in memory.');
+      }
+    }
+
+    function renderAll() {
+      renderVitalsGrid();
+      renderSvgBodyColors();
+      renderZoneInspector();
+      renderTriageScenario();
+      renderGamifiedTasks();
+      renderBayesianTwin();
+      renderTrendsChart();
+      runMonteCarloSimulation();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', renderAll);
+    } else {
+      renderAll();
+    }
+  </script>
+</body>
+</html>
